@@ -300,7 +300,9 @@ function loadState() {
       peopleById: { ...defaultState().peopleById, ...(parsed.peopleById || {}) },
       childrenByParentId: { ...defaultState().childrenByParentId, ...(parsed.childrenByParentId || {}) },
       roots: Array.isArray(parsed.roots) ? parsed.roots : defaultState().roots,
-      requests: Array.isArray(parsed.requests) ? parsed.requests : defaultState().requests,
+      requests: Array.isArray(parsed.requests)
+        ? parsed.requests.filter((r) => String(r.status || "pending") === "pending")
+        : defaultState().requests,
       couplesById: { ...defaultState().couplesById, ...(parsed.couplesById || {}) },
       lineageColorById: { ...defaultState().lineageColorById, ...(parsed.lineageColorById || {}) },
       nodeOffsets: { ...defaultState().nodeOffsets, ...(parsed.nodeOffsets || {}) },
