@@ -165,8 +165,8 @@ on public.photos for all
 using (public.is_admin())
 with check (public.is_admin());
 
--- Admin approval RPC: marks request approved and (for now) just deletes it from the pending list.
--- Later we can expand to apply payload into people/relationships/photos.
+-- Admin approval RPC: el árbol se actualiza a mano fuera de esta acción; aquí solo se elimina
+-- la fila de la cola para que deje de verse en el panel público de solicitudes.
 create or replace function public.approve_request(req_id uuid)
 returns void
 language plpgsql

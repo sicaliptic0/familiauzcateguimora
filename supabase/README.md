@@ -31,5 +31,5 @@ on conflict (id) do update set is_admin = true, email = excluded.email;
 En `supabaseClient.js` y `admin.js` está el URL y la publishable key del proyecto.
 
 ### 5) Dashboard de admin
-Abre `admin.html`, entra con **email + contraseña** y aprueba solicitudes.
+Abre `admin.html`, entra con **email + contraseña**. Cuando ya hayas aplicado los cambios del árbol a mano, pulsa **Aprobar**: la solicitud se borra de la base y desaparece del panel de solicitudes en la web pública (solo se listan pendientes).
 

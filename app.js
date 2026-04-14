@@ -314,17 +314,6 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function ensureAppliedApprovedAdds() {
-  // Aplica automáticamente solicitudes aprobadas tipo add_person que no se hayan aplicado (por si la demo se carga en orden distinto)
-  for (const req of state.requests) {
-    if (req.status !== "approved") continue;
-    if (req.type !== "add_person") continue;
-    if (req.applied) continue;
-    applyAddPerson(req);
-    req.applied = true;
-  }
-}
-
 function normalizePersonPhotos(person) {
   if (!person) return person;
   // compatibilidad con versiones previas
@@ -1171,7 +1160,8 @@ function requestTitle(req) {
 
 function renderRequests() {
   const list = document.getElementById("requestsList");
-  const sorted = [...state.requests].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const pendingOnly = (state.requests || []).filter((r) => String(r.status || "pending") === "pending");
+  const sorted = [...pendingOnly].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   list.innerHTML = "";
 
   if (sorted.length === 0) {
@@ -1227,6 +1217,7 @@ async function refreshRequestsFromDb() {
   const { data, error } = await sb
     .from("requests")
     .select("id, created_at, requester_name, type, notes, payload, status")
+    .eq("status", "pending")
     .order("created_at", { ascending: true });
   if (error) return;
   state.requests = (data || []).map((r) => ({
@@ -1242,17 +1233,11 @@ async function refreshRequestsFromDb() {
   renderRequests();
 }
 
+/** Solo modo local sin Supabase: el admin ya aplicó los cambios a mano; aquí solo se quita de la cola. */
 function approveRequest(id) {
-  const req = state.requests.find((r) => r.id === id);
-  if (!req || req.status !== "pending") return;
-  req.status = "approved";
-  if (req.type === "add_person") {
-    applyAddPerson(req);
-    req.applied = true;
-  } else if (req.type === "edit_person") {
-    applyEditPerson(req);
-    req.applied = true;
-  }
+  const idx = state.requests.findIndex((r) => r.id === id && String(r.status || "pending") === "pending");
+  if (idx === -1) return;
+  state.requests.splice(idx, 1);
   saveState();
   syncUI();
 }
@@ -1335,16 +1320,6 @@ function wireForm() {
     if (type === "add_person") {
       if (!relationship) {
         alert("Selecciona la relación.");
-        return;
-      }
-    }
-
-    if (type === "edit_person") {
-      const full = `${firstName} ${lastName}`.trim();
-      if (!findPersonIdByName(full)) {
-        alert(
-          `No se encontró en el árbol a «${full}». Para modificar, escribe el nombre y apellido exactamente como en la ficha (incluye segundos nombres si aplica).`,
-        );
         return;
       }
     }
@@ -1494,7 +1469,6 @@ function wireAddDataButton() {
 
 function syncUI() {
   try {
-    ensureAppliedApprovedAdds();
     normalizePeople();
     const { positions, nodeW } = renderTree() || {};
     renderRequests();
@@ -1670,8 +1644,6 @@ function openProfileModal(personId) {
 }
 
 function init() {
-  // Asegura que las solicitudes aprobadas de demo se reflejen en el árbol
-  ensureAppliedApprovedAdds();
   normalizePeople();
   saveState();
   sb = window.getSupabase ? window.getSupabase() : null;

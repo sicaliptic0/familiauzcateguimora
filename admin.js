@@ -133,9 +133,17 @@ async function loadPending() {
     btn.addEventListener("click", async () => {
       const id = btn.getAttribute("data-approve");
       btn.disabled = true;
-      await sb.rpc("approve_request", { req_id: id });
+      const { error } = await sb.rpc("approve_request", { req_id: id });
+      if (error) {
+        btn.disabled = false;
+        alert(error.message || "No se pudo aprobar.");
+        return;
+      }
       const card = list.querySelector(`[data-req="${id}"]`);
       if (card) card.remove();
+      if (!list.querySelector("[data-req]")) {
+        list.innerHTML = `<div class="card"><div class="card__title">Sin solicitudes</div><div class="card__meta">No hay pendientes.</div></div>`;
+      }
     });
   }
 }
