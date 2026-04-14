@@ -33,6 +33,9 @@
               <div class="sectionHint">
                 En móvil: desplázate (horizontal/vertical). En escritorio: también puedes hacer scroll.
               </div>
+              <div class="sectionHint treeMobileHint">
+                Pantalla táctil: primer toque en una persona resalta su linaje; un segundo toque en la misma ficha abre el perfil.
+              </div>
               <div class="treeLegend" aria-label="Leyenda de líneas">
                 <div class="treeLegend__row">
                   <span class="treeLegend__sample treeLegend__sample--blood" aria-hidden="true"></span>
@@ -92,28 +95,18 @@
                   <option value="edit_person">Modificar persona</option>
                 </select>
               </div>
-
-              <div class="field" id="objectiveWrap" hidden>
-                <label for="objectiveName">Persona objetivo (Nombre y Apellido)</label>
-                <input
-                  id="objectiveName"
-                  name="objectiveName"
-                  type="text"
-                  placeholder="Ej: Carmelo Uzcátegui"
-                />
-              </div>
             </div>
 
             <div class="divider"></div>
 
             <div class="grid">
               <div class="field">
-                <label for="firstName">Nombre</label>
-                <input id="firstName" name="firstName" type="text" placeholder="Ej: José" required />
+                <label for="firstName">Nombre completo</label>
+                <input id="firstName" name="firstName" type="text" placeholder="Ej: José Ricardo" required />
               </div>
               <div class="field">
-                <label for="lastName">Apellido</label>
-                <input id="lastName" name="lastName" type="text" placeholder="Ej: Uzcátegui" required />
+                <label for="lastName">Apellido completo</label>
+                <input id="lastName" name="lastName" type="text" placeholder="Ej: Uzcategui Mora" required />
               </div>
             </div>
 
@@ -148,7 +141,7 @@
               </div>
 
               <div class="field">
-                <label for="photos">Fotos (opcional)</label>
+                <label for="photos">Fotos (opcional, máximo 5)</label>
                 <input id="photos" name="photos" type="file" accept="image/*" multiple />
               </div>
             </div>
@@ -162,10 +155,11 @@
                   <option value="spouse_of">Esposo/a de</option>
                   <option value="sibling_of">Hermano/a de</option>
                   <option value="parent_of">Papá o mamá de</option>
+                  <option value="other">Otro</option>
                 </select>
               </div>
               <div class="field">
-                <label for="relatedName">Nombre (según relación)</label>
+                <label for="relatedName">Nombre (relación)</label>
                 <input
                   id="relatedName"
                   name="relatedName"

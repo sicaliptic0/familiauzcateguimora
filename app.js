@@ -1,6 +1,13 @@
 /* eslint-disable no-alert */
 const STORAGE_KEY = "family_tree_familia_v5";
 const DEFAULT_CENTER_ON_LOAD = true;
+
+/** Móvil táctil: 1er toque en persona con linaje = resaltar; 2º toque en la misma = abrir perfil */
+let mobileTreeLineagePrimeId = null;
+
+function treeIsCoarsePointer() {
+  return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
 /** Línea “hijo de afecto” (trazo discontinuo; tono distinto al de sangre) */
 const PUTATIVE_EDGE_STROKE = "rgba(230, 188, 118, 0.92)";
 const ENABLE_NODE_DRAG = false;
@@ -23,6 +30,40 @@ function formatDate(iso) {
 
 function safeText(s) {
   return String(s ?? "").trim();
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function relationshipLabel(rel) {
+  const m = {
+    child_of: "Hijo/a de",
+    spouse_of: "Esposo/a de",
+    sibling_of: "Hermano/a de",
+    parent_of: "Papá o mamá de",
+    other: "Otro",
+  };
+  return m[String(rel || "")] || (rel ? String(rel) : "—");
+}
+
+function isSafePhotoUrl(url) {
+  const u = String(url || "");
+  return u.startsWith("data:image/") || u.startsWith("https://") || u.startsWith("http://");
+}
+
+/** Miniaturas para tarjetas de solicitud (máx. 5). */
+function requestPhotosThumbsHtml(photos) {
+  const arr = (Array.isArray(photos) ? photos : []).filter((u) => isSafePhotoUrl(u)).slice(0, 5);
+  if (!arr.length) return "";
+  const imgs = arr
+    .map((url) => `<img class="requestCard__thumb" src="${escapeHtml(url)}" alt="" loading="lazy" />`)
+    .join("");
+  return `<div class="requestCard__photos" role="group" aria-label="Fotos adjuntas">${imgs}</div>`;
 }
 
 function readFileAsDataUrl(file) {
@@ -275,7 +316,7 @@ function normalizePersonPhotos(person) {
     email: "",
     instagram: "",
     ...person,
-    photos: photos.filter(Boolean),
+    photos: photos.filter(Boolean).slice(0, 5),
     putative: Boolean(person.putative),
   };
 }
@@ -291,7 +332,7 @@ function applyAddPerson(req) {
     isAlive: Boolean(p.isAlive),
     deathDate: p.isAlive ? "" : (p.deathDate || ""),
     location: safeText(p.location),
-    photos: Array.isArray(p.photos) ? p.photos.filter(Boolean) : (p.photo ? [p.photo] : []),
+    photos: (Array.isArray(p.photos) ? p.photos.filter(Boolean) : (p.photo ? [p.photo] : [])).slice(0, 5),
     email: "",
     instagram: "",
   };
@@ -326,17 +367,22 @@ function applyAddPerson(req) {
     }
     if (parentIds.length) return;
   }
+  if (rel === "other") {
+    state.roots = [...new Set([...(state.roots || []), newId])];
+    return;
+  }
   // spouse_of: por ahora no cambia el gráfico (se modelará mejor con backend)
   state.roots = [...new Set([...(state.roots || []), newId])];
 }
 
 function applyEditPerson(req) {
   const p = req.payload || {};
-  const objectiveName = safeText(p.objectiveName || "");
-  const id = objectiveName ? findPersonIdByName(objectiveName) : "";
+  const fullName = `${safeText(p.firstName)} ${safeText(p.lastName)}`.trim();
+  const legacy = safeText(p.objectiveName || "");
+  const id = findPersonIdByName(fullName) || (legacy ? findPersonIdByName(legacy) : "");
   if (!id || !state.peopleById[id]) return;
   const prev = normalizePersonPhotos(state.peopleById[id]);
-  const nextPhotos = Array.isArray(p.photos) ? p.photos.filter(Boolean) : prev.photos;
+  const nextPhotos = (Array.isArray(p.photos) ? p.photos.filter(Boolean) : prev.photos).slice(0, 5);
   state.peopleById[id] = {
     ...prev,
     firstName: safeText(p.firstName),
@@ -754,6 +800,7 @@ function buildParentMap(childrenByParentId) {
 }
 
 function renderTree() {
+  mobileTreeLineagePrimeId = null;
   const canvas = document.getElementById("treeCanvas");
   const viewport = document.getElementById("treeViewport");
   const { positions, edges, width, height, nodeW, nodeH, spouseW, spouseH } = layoutTree();
@@ -940,6 +987,7 @@ function renderTree() {
       if (av) {
         av.addEventListener("click", (e) => {
           e.preventDefault();
+          e.stopPropagation();
           openProfileModal(id);
         });
       }
@@ -948,6 +996,20 @@ function renderTree() {
     node.addEventListener("click", (e) => {
       const target = e.target;
       if (target && target.closest && target.closest("[data-open-photos='true']")) return;
+      const lkNode = lineageKeyForPerson(id);
+      if (treeIsCoarsePointer() && lkNode) {
+        if (mobileTreeLineagePrimeId === id) {
+          mobileTreeLineagePrimeId = null;
+          clearLineageFocus();
+          openProfileModal(id);
+        } else {
+          mobileTreeLineagePrimeId = id;
+          clearTimeout(clearHoverT);
+          setLineageFocus(lkNode);
+        }
+        return;
+      }
+      mobileTreeLineagePrimeId = null;
       openProfileModal(id);
     });
 
@@ -990,11 +1052,27 @@ function renderTree() {
     const lk = lineageKeyForPerson(pid);
     n.dataset.lineage = lk;
     if (!lk) continue;
-    n.addEventListener("mouseenter", () => {
-      clearTimeout(clearHoverT);
-      setLineageFocus(lk);
-    });
-    n.addEventListener("mouseleave", scheduleClearLineageFocus);
+    if (!treeIsCoarsePointer()) {
+      n.addEventListener("mouseenter", () => {
+        clearTimeout(clearHoverT);
+        setLineageFocus(lk);
+      });
+      n.addEventListener("mouseleave", scheduleClearLineageFocus);
+    }
+  }
+
+  if (viewport) {
+    const prev = canvas._lineageBgCleanup;
+    if (typeof prev === "function") prev();
+    const bgHandler = (e) => {
+      if (!treeIsCoarsePointer()) return;
+      const t = e.target;
+      if (t && t.closest && t.closest(".node")) return;
+      mobileTreeLineagePrimeId = null;
+      clearLineageFocus();
+    };
+    viewport.addEventListener("pointerdown", bgHandler, { capture: true });
+    canvas._lineageBgCleanup = () => viewport.removeEventListener("pointerdown", bgHandler, { capture: true });
   }
   if (renderedCount === 0) {
     showTreeError(new Error("No se renderizó ningún perfil. Revisa si el estado guardado (localStorage) está corrupto. Si necesitas, borra el localStorage del sitio y recarga."));
@@ -1079,8 +1157,8 @@ function statusLabel(status) {
 function requestTitle(req) {
   const p = req.payload || {};
   if (req.type === "edit_person") {
-    const name = safeText(p.objectiveName) || "persona";
-    return `Modificar: ${name}`;
+    const nm = `${safeText(p.firstName)} ${safeText(p.lastName)}`.trim();
+    return `Modificar: ${nm || "persona"}`;
   }
   return `Agregar: ${safeText(p.firstName)} ${safeText(p.lastName)}`.trim();
 }
@@ -1108,9 +1186,10 @@ function renderRequests() {
 
     const p = req.payload || req.payload_json || {};
     const aliveLine = p.isAlive ? "Vivo" : `Fallecido (${formatDate(p.deathDate)})`;
-    const photoLine = (Array.isArray(p.photos) ? p.photos.length : (p.photo ? 1 : 0)) ? "Sí" : "No";
-    const relLine = p.relationship ? String(p.relationship) : "—";
-    const relNameLine = safeText(p.relatedName) || "—";
+    const relNameLine = escapeHtml(safeText(p.relatedName) || "—");
+    const relLine = escapeHtml(relationshipLabel(p.relationship));
+    const typeLine = req.type === "edit_person" ? "Modificar persona" : "Agregar persona";
+    const thumbs = requestPhotosThumbsHtml(p.photos);
 
     const st = String(req.status || "pending");
     const stInfo = statusLabel(st);
@@ -1118,15 +1197,18 @@ function renderRequests() {
 
     card.innerHTML = `
       <div class="card__top">
-        <div class="card__title">${requestTitle(req) || "Solicitud"}</div>
+        <div class="card__title">${escapeHtml(requestTitle(req) || "Solicitud")}</div>
         ${statusHtml}
       </div>
       <div class="card__meta">
-        <div><b>Enviado por:</b> ${safeText(req.requesterName) || "—"} · <b>Fecha:</b> ${when}</div>
-        <div><b>Nac.:</b> ${formatDate(p.birthDate)} · <b>Estado:</b> ${aliveLine}</div>
-        <div><b>Ubicación:</b> ${safeText(p.location) || "—"} · <b>Foto:</b> ${photoLine}</div>
-        ${req.type === "add_person" ? `<div><b>Relación:</b> ${relLine} · <b>Nombre:</b> ${relNameLine}</div>` : ""}
-        ${safeText(req.notes) ? `<div><b>Notas:</b> ${safeText(req.notes)}</div>` : ""}
+        <div><b>Tipo:</b> ${escapeHtml(typeLine)}</div>
+        <div><b>Nombre completo:</b> ${escapeHtml(safeText(p.firstName))} · <b>Apellido completo:</b> ${escapeHtml(safeText(p.lastName))}</div>
+        <div><b>Nac.:</b> ${escapeHtml(formatDate(p.birthDate))} · <b>Estado:</b> ${escapeHtml(aliveLine)}</div>
+        <div><b>Ubicación:</b> ${escapeHtml(safeText(p.location) || "—")}</div>
+        <div><b>Relación:</b> ${relLine} · <b>Nombre (relación):</b> ${relNameLine}</div>
+        <div><b>Enviado por:</b> ${escapeHtml(safeText(req.requesterName) || "—")} · <b>Fecha:</b> ${escapeHtml(when)}</div>
+        ${safeText(req.notes) ? `<div><b>Notas:</b> ${escapeHtml(safeText(req.notes))}</div>` : ""}
+        ${thumbs}
       </div>
     `;
 
@@ -1186,8 +1268,8 @@ function wireForm() {
   const isAlive = document.getElementById("isAlive");
   const deathDate = document.getElementById("deathDate");
   const reqType = document.getElementById("reqType");
-  const objectiveWrap = document.getElementById("objectiveWrap");
-  const objectiveName = document.getElementById("objectiveName");
+  const photosInput = document.getElementById("photos");
+  const relationshipEl = document.getElementById("relationship");
 
   isAlive.addEventListener("change", () => {
     deathDate.disabled = isAlive.checked;
@@ -1196,11 +1278,17 @@ function wireForm() {
 
   reqType.addEventListener("change", () => {
     const isEdit = reqType.value === "edit_person";
-    objectiveWrap.hidden = !isEdit;
-    objectiveName.required = isEdit;
-    document.getElementById("relationship").disabled = isEdit;
-    document.getElementById("relatedName").disabled = isEdit;
-    if (!isEdit) objectiveName.value = "";
+    if (relationshipEl) relationshipEl.required = !isEdit;
+  });
+
+  const MAX_PHOTOS = 5;
+  photosInput.addEventListener("change", () => {
+    const files = photosInput.files;
+    if (!files || files.length <= MAX_PHOTOS) return;
+    const dt = new DataTransfer();
+    for (let i = 0; i < MAX_PHOTOS; i += 1) dt.items.add(files[i]);
+    photosInput.files = dt.files;
+    alert(`Solo se permiten ${MAX_PHOTOS} fotos. Se mantienen las primeras ${MAX_PHOTOS}.`);
   });
 
   form.addEventListener("submit", async (e) => {
@@ -1216,16 +1304,21 @@ function wireForm() {
     const location = safeText(fd.get("location"));
     const requesterName = safeText(fd.get("requesterName"));
     const notes = safeText(fd.get("notes"));
-    const objective = safeText(fd.get("objectiveName"));
+    const relationship = String(fd.get("relationship") || "");
+    const relatedName = safeText(fd.get("relatedName"));
 
-    const photoFiles = fd.getAll("photos");
+    const photoFiles = fd.getAll("photos").filter((f) => f && typeof f === "object" && f.size);
+    if (photoFiles.length > MAX_PHOTOS) {
+      alert(`Máximo ${MAX_PHOTOS} fotos por solicitud.`);
+      return;
+    }
     const photos = [];
     for (const f of photoFiles) {
-      if (f && typeof f === "object" && f.size) photos.push(await readFileAsDataUrl(f));
+      photos.push(await readFileAsDataUrl(f));
     }
 
     if (!firstName || !lastName || !birthDate || !requesterName) {
-      alert("Por favor completa Nombre, Apellido, Fecha de nacimiento y Quién solicita.");
+      alert("Por favor completa nombre completo, apellido completo, fecha de nacimiento y Quién solicita.");
       return;
     }
     if (!alive && !death) {
@@ -1234,15 +1327,20 @@ function wireForm() {
     }
 
     if (type === "add_person") {
-      const rel = String(fd.get("relationship") || "");
-      if (!rel) {
+      if (!relationship) {
         alert("Selecciona la relación.");
         return;
       }
     }
-    if (type === "edit_person" && !objective) {
-      alert("Escribe la persona objetivo (Nombre y Apellido).");
-      return;
+
+    if (type === "edit_person") {
+      const full = `${firstName} ${lastName}`.trim();
+      if (!findPersonIdByName(full)) {
+        alert(
+          `No se encontró en el árbol a «${full}». Para modificar, escribe el nombre y apellido exactamente como en la ficha (incluye segundos nombres si aplica).`,
+        );
+        return;
+      }
     }
 
     const req = {
@@ -1253,7 +1351,6 @@ function wireForm() {
       requesterName,
       notes,
       payload: {
-        ...(type === "edit_person" ? { objectiveName: objective } : {}),
         firstName,
         lastName,
         birthDate,
@@ -1261,9 +1358,8 @@ function wireForm() {
         deathDate: alive ? "" : death,
         location,
         photos,
-        ...(type === "add_person"
-          ? { relationship: String(fd.get("relationship") || ""), relatedName: safeText(fd.get("relatedName")) }
-          : {}),
+        relationship,
+        relatedName,
       },
       applied: false,
     };
@@ -1290,10 +1386,7 @@ function wireForm() {
     document.getElementById("isAlive").checked = true;
     document.getElementById("deathDate").disabled = true;
     document.getElementById("reqType").value = "add_person";
-    document.getElementById("objectiveWrap").hidden = true;
-    document.getElementById("objectiveName").required = false;
-    document.getElementById("relationship").disabled = false;
-    document.getElementById("relatedName").disabled = false;
+    if (relationshipEl) relationshipEl.required = true;
 
     // muestra panel de solicitudes (en mobile, queda debajo; igual sirve)
     document.getElementById("requestsList").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1401,11 +1494,9 @@ function syncUI() {
     renderRequests();
     // Ajustes del form según tipo
     const reqType = document.getElementById("reqType");
-    const isEdit = reqType.value === "edit_person";
-    document.getElementById("objectiveWrap").hidden = !isEdit;
-    document.getElementById("objectiveName").required = isEdit;
-    document.getElementById("relationship").disabled = isEdit;
-    document.getElementById("relatedName").disabled = isEdit;
+    const isEdit = reqType && reqType.value === "edit_person";
+    const relEl = document.getElementById("relationship");
+    if (relEl) relEl.required = !isEdit;
 
     if (DEFAULT_CENTER_ON_LOAD && !hasCentered && positions && nodeW) {
       centerOnRoots(positions, nodeW);

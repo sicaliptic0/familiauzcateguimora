@@ -39,21 +39,71 @@ async function getAdminAccessStatus() {
   return { ok: true };
 }
 
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function relationshipLabel(rel) {
+  const m = {
+    child_of: "Hijo/a de",
+    spouse_of: "Esposo/a de",
+    sibling_of: "Hermano/a de",
+    parent_of: "Papá o mamá de",
+    other: "Otro",
+  };
+  return m[String(rel || "")] || (rel ? String(rel) : "—");
+}
+
+function formatDateShort(iso) {
+  if (!iso) return "—";
+  try {
+    const [y, m, d] = String(iso).split("-").map((x) => Number(x));
+    if (!y || !m || !d) return String(iso);
+    return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+  } catch {
+    return String(iso);
+  }
+}
+
+function isSafePhotoUrl(url) {
+  const u = String(url || "");
+  return u.startsWith("data:image/") || u.startsWith("https://") || u.startsWith("http://");
+}
+
+function requestPhotosThumbsHtml(photos) {
+  const arr = (Array.isArray(photos) ? photos : []).filter((u) => isSafePhotoUrl(u)).slice(0, 5);
+  if (!arr.length) return "";
+  return `<div class="requestCard__photos">${arr.map((url) => `<img class="requestCard__thumb" src="${escapeHtml(url)}" alt="" loading="lazy" />`).join("")}</div>`;
+}
+
 function requestCard(req) {
   const p = req.payload || {};
   const title = req.type === "edit_person"
-    ? `Modificar: ${String(p.objectiveName || "persona")}`
-    : `Agregar: ${String(p.firstName || "")} ${String(p.lastName || "")}`.trim();
+    ? `Modificar: ${String(p.firstName || "").trim()} ${String(p.lastName || "").trim()}`.trim() || "persona"
+    : `Agregar: ${String(p.firstName || "").trim()} ${String(p.lastName || "").trim()}`.trim();
   const created = new Date(req.created_at || Date.now()).toLocaleString();
+  const aliveLine = p.isAlive ? "Vivo" : `Fallecido (${formatDateShort(p.deathDate)})`;
+  const typeLine = req.type === "edit_person" ? "Modificar persona" : "Agregar persona";
+  const thumbs = requestPhotosThumbsHtml(p.photos);
   return `
     <div class="card" data-req="${req.id}">
       <div class="card__top">
-        <div class="card__title">${title || "Solicitud"}</div>
+        <div class="card__title">${escapeHtml(title || "Solicitud")}</div>
         <div class="status status--pending">Pendiente por aprobar</div>
       </div>
       <div class="card__meta">
-        <div><b>Enviado por:</b> ${req.requester_name || "—"} · <b>Fecha:</b> ${created}</div>
-        ${req.notes ? `<div><b>Notas:</b> ${req.notes}</div>` : ""}
+        <div><b>Tipo:</b> ${escapeHtml(typeLine)}</div>
+        <div><b>Nombre completo:</b> ${escapeHtml(String(p.firstName || "").trim())} · <b>Apellido completo:</b> ${escapeHtml(String(p.lastName || "").trim())}</div>
+        <div><b>Nac.:</b> ${escapeHtml(formatDateShort(p.birthDate))} · <b>Estado:</b> ${escapeHtml(aliveLine)}</div>
+        <div><b>Ubicación:</b> ${escapeHtml(String(p.location || "").trim() || "—")}</div>
+        <div><b>Relación:</b> ${escapeHtml(relationshipLabel(p.relationship))} · <b>Nombre (relación):</b> ${escapeHtml(String(p.relatedName || "").trim() || "—")}</div>
+        <div><b>Enviado por:</b> ${escapeHtml(String(req.requester_name || "").trim() || "—")} · <b>Fecha:</b> ${escapeHtml(created)}</div>
+        ${req.notes ? `<div><b>Notas:</b> ${escapeHtml(String(req.notes))}</div>` : ""}
+        ${thumbs}
       </div>
       <div class="card__actions">
         <button class="btn btn--primary" type="button" data-approve="${req.id}">Aprobar</button>
