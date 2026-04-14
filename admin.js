@@ -100,6 +100,7 @@ function requestCard(req) {
         <div><b>Nombre completo:</b> ${escapeHtml(String(p.firstName || "").trim())} · <b>Apellido completo:</b> ${escapeHtml(String(p.lastName || "").trim())}</div>
         <div><b>Nac.:</b> ${escapeHtml(formatDateShort(p.birthDate))} · <b>Estado:</b> ${escapeHtml(aliveLine)}</div>
         <div><b>Ubicación:</b> ${escapeHtml(String(p.location || "").trim() || "—")}</div>
+        <div><b>Correo:</b> ${escapeHtml(String(p.email || "").trim() || "—")} · <b>Instagram:</b> ${escapeHtml(String(p.instagram || "").trim() || "—")} · <b>TikTok:</b> ${escapeHtml(String(p.tiktok || "").trim() || "—")}</div>
         <div><b>Relación:</b> ${escapeHtml(relationshipLabel(p.relationship))} · <b>Nombre (relación):</b> ${escapeHtml(String(p.relatedName || "").trim() || "—")}</div>
         <div><b>Enviado por:</b> ${escapeHtml(String(req.requester_name || "").trim() || "—")} · <b>Fecha:</b> ${escapeHtml(created)}</div>
         ${req.notes ? `<div><b>Notas:</b> ${escapeHtml(String(req.notes))}</div>` : ""}

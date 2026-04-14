@@ -109,6 +109,7 @@ function defaultState() {
     photos: [],
     email: "",
     instagram: "",
+    tiktok: "",
   };
   const nona = {
     id: "p_nona",
@@ -121,6 +122,7 @@ function defaultState() {
     photos: [],
     email: "",
     instagram: "",
+    tiktok: "",
   };
 
   const peopleById = {
@@ -165,6 +167,7 @@ function defaultState() {
       photos: [],
       email: "",
       instagram: "",
+      tiktok: "",
       putative: Boolean(opts.putative),
     };
   }
@@ -324,6 +327,7 @@ function normalizePersonPhotos(person) {
   return {
     email: "",
     instagram: "",
+    tiktok: "",
     ...person,
     photos: photos.filter(Boolean).slice(0, 5),
     putative: Boolean(person.putative),
@@ -342,8 +346,9 @@ function applyAddPerson(req) {
     deathDate: p.isAlive ? "" : (p.deathDate || ""),
     location: safeText(p.location),
     photos: (Array.isArray(p.photos) ? p.photos.filter(Boolean) : (p.photo ? [p.photo] : [])).slice(0, 5),
-    email: "",
-    instagram: "",
+    email: safeText(p.email),
+    instagram: safeText(p.instagram),
+    tiktok: safeText(p.tiktok),
   };
   state.peopleById[newId] = person;
   // Ubicación por relación (best-effort en frontend)
@@ -401,6 +406,9 @@ function applyEditPerson(req) {
     deathDate: p.isAlive ? "" : (p.deathDate || ""),
     location: safeText(p.location),
     photos: nextPhotos,
+    email: safeText(p.email) || prev.email || "",
+    instagram: safeText(p.instagram) || prev.instagram || "",
+    tiktok: safeText(p.tiktok) || prev.tiktok || "",
   };
 }
 
@@ -1203,6 +1211,7 @@ function renderRequests() {
         <div><b>Nombre completo:</b> ${escapeHtml(safeText(p.firstName))} · <b>Apellido completo:</b> ${escapeHtml(safeText(p.lastName))}</div>
         <div><b>Nac.:</b> ${escapeHtml(formatDate(p.birthDate))} · <b>Estado:</b> ${escapeHtml(aliveLine)}</div>
         <div><b>Ubicación:</b> ${escapeHtml(safeText(p.location) || "—")}</div>
+        <div><b>Correo:</b> ${escapeHtml(safeText(p.email) || "—")} · <b>Instagram:</b> ${escapeHtml(safeText(p.instagram) || "—")} · <b>TikTok:</b> ${escapeHtml(safeText(p.tiktok) || "—")}</div>
         <div><b>Relación:</b> ${relLine} · <b>Nombre (relación):</b> ${relNameLine}</div>
         <div><b>Enviado por:</b> ${escapeHtml(safeText(req.requesterName) || "—")} · <b>Fecha:</b> ${escapeHtml(when)}</div>
         ${safeText(req.notes) ? `<div><b>Notas:</b> ${escapeHtml(safeText(req.notes))}</div>` : ""}
@@ -1295,6 +1304,9 @@ function wireForm() {
     const alive = Boolean(fd.get("isAlive"));
     const death = String(fd.get("deathDate") || "");
     const location = safeText(fd.get("location"));
+    const email = safeText(fd.get("contactEmail"));
+    const instagram = safeText(fd.get("instagram"));
+    const tiktok = safeText(fd.get("tiktok"));
     const requesterName = safeText(fd.get("requesterName"));
     const notes = safeText(fd.get("notes"));
     const relationship = String(fd.get("relationship") || "");
@@ -1340,6 +1352,9 @@ function wireForm() {
         isAlive: alive,
         deathDate: alive ? "" : death,
         location,
+        email,
+        instagram,
+        tiktok,
         photos,
         relationship,
         relatedName,
@@ -1594,6 +1609,7 @@ function openProfileModal(personId) {
     profileLinks.innerHTML = "";
     const email = safeText(person.email);
     const ig = safeText(person.instagram);
+    const tt = safeText(person.tiktok);
     if (email) {
       const a = document.createElement("a");
       a.className = "linkPill";
@@ -1611,7 +1627,17 @@ function openProfileModal(personId) {
       a.textContent = `Instagram: @${clean}`;
       profileLinks.appendChild(a);
     }
-    if (!email && !ig) {
+    if (tt) {
+      const cleanTt = tt.replace(/^@/, "");
+      const a = document.createElement("a");
+      a.className = "linkPill";
+      a.href = `https://www.tiktok.com/@${encodeURIComponent(cleanTt)}`;
+      a.target = "_blank";
+      a.rel = "noreferrer";
+      a.textContent = `TikTok: @${cleanTt}`;
+      profileLinks.appendChild(a);
+    }
+    if (!email && !ig && !tt) {
       const span = document.createElement("span");
       span.className = "muted";
       span.textContent = "Sin redes/correo aún.";
