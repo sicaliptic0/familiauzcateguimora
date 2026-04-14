@@ -562,10 +562,20 @@ input:focus, select:focus {
 }
 input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* iOS Safari hace zoom automático al focus si el control tiene font-size menor que 16px */
 @media (hover: none) and (pointer: coarse) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  input[type="date"],
+  input[type="file"],
   select,
-  input[type="date"] {
-    font-size: 16px; /* evita zoom iOS al enfocar y mejora toque */
+  textarea {
+    font-size: 16px;
     min-height: 44px;
   }
 }
