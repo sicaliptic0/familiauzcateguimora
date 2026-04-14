@@ -12,38 +12,28 @@
   </head>
   <body>
     <div class="app">
-      <header class="topbar">
+      <header class="topbar topbar--compact">
         <div class="topbar__brand">
           <div class="mark" aria-hidden="true"></div>
-          <div>
+          <div class="topbar__titleWrap">
             <div class="topbar__title">Árbol genealógico de la familia Uzcategui Mora</div>
           </div>
         </div>
-        <div class="topbar__actions">
-          <a class="btn btn--admin" href="./admin.html">Panel admin</a>
-          <button id="addData" class="btn btn--primary" type="button">Agregar datos</button>
-        </div>
+        <button id="addData" class="btn btn--primary btn--addData" type="button">Agregar datos</button>
       </header>
 
       <main class="layout">
         <section class="treePanel" aria-label="Árbol genealógico">
-          <div class="treePanel__header">
-            <div>
-              <div class="sectionTitle">Árbol</div>
-              <div class="sectionHint">
-                En móvil: desplázate (horizontal/vertical). En escritorio: también puedes hacer scroll.
-              </div>
-              <div class="sectionHint treeMobileHint">
-                Pantalla táctil: primer toque en una persona resalta su linaje; un segundo toque en la misma ficha abre el perfil.
-              </div>
+          <div class="treePanel__header treePanel__header--compact">
+            <div class="treePanel__headerMain">
               <div class="treeLegend" aria-label="Leyenda de líneas">
                 <div class="treeLegend__row">
                   <span class="treeLegend__sample treeLegend__sample--blood" aria-hidden="true"></span>
-                  <span class="treeLegend__text"><strong>Línea continua</strong> (color del linaje): hijo de sangre.</span>
+                  <span class="treeLegend__text">Línea continua: hijo de sangre.</span>
                 </div>
                 <div class="treeLegend__row">
                   <span class="treeLegend__sample treeLegend__sample--afecto" aria-hidden="true"></span>
-                  <span class="treeLegend__text"><strong>Línea discontinua</strong> (tono ámbar): hijo de afecto.</span>
+                  <span class="treeLegend__text">Línea discontinua: hijo de afecto.</span>
                 </div>
               </div>
             </div>
@@ -195,6 +185,10 @@
           </form>
         </section>
       </main>
+
+      <footer class="appFooter">
+        <a class="btn btn--admin btn--adminFooter" href="./admin.html">Panel admin</a>
+      </footer>
     </div>
 
     <div class="modal" id="photoModal" aria-hidden="true">

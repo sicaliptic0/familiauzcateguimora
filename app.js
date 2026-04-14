@@ -8,6 +8,24 @@ let mobileTreeLineagePrimeId = null;
 function treeIsCoarsePointer() {
   return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 }
+
+let treeLineageOutsideClickBound = false;
+function bindTreeLineageOutsideClickOnce() {
+  if (treeLineageOutsideClickBound) return;
+  treeLineageOutsideClickBound = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!treeIsCoarsePointer()) return;
+      const vp = document.getElementById("treeViewport");
+      if (!vp || vp.contains(e.target)) return;
+      mobileTreeLineagePrimeId = null;
+      const c = document.getElementById("treeCanvas");
+      if (c && typeof c._clearLineageFocus === "function") c._clearLineageFocus();
+    },
+    true,
+  );
+}
 /** Línea “hijo de afecto” (trazo discontinuo; tono distinto al de sangre) */
 const PUTATIVE_EDGE_STROKE = "rgba(230, 188, 118, 0.92)";
 const ENABLE_NODE_DRAG = false;
@@ -1061,19 +1079,7 @@ function renderTree() {
     }
   }
 
-  if (viewport) {
-    const prev = canvas._lineageBgCleanup;
-    if (typeof prev === "function") prev();
-    const bgHandler = (e) => {
-      if (!treeIsCoarsePointer()) return;
-      const t = e.target;
-      if (t && t.closest && t.closest(".node")) return;
-      mobileTreeLineagePrimeId = null;
-      clearLineageFocus();
-    };
-    viewport.addEventListener("pointerdown", bgHandler, { capture: true });
-    canvas._lineageBgCleanup = () => viewport.removeEventListener("pointerdown", bgHandler, { capture: true });
-  }
+  canvas._clearLineageFocus = clearLineageFocus;
   if (renderedCount === 0) {
     showTreeError(new Error("No se renderizó ningún perfil. Revisa si el estado guardado (localStorage) está corrupto. Si necesitas, borra el localStorage del sitio y recarga."));
   }
@@ -1674,6 +1680,7 @@ function init() {
   wireAddDataButton();
   wireForm();
   setupPhotoModal();
+  bindTreeLineageOutsideClickOnce();
   syncUI();
   refreshRequestsFromDb();
 }
