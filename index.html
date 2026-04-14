@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Familia — Árbol Genealógico</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <div class="mark" aria-hidden="true"></div>
+          <div>
+            <div class="topbar__title">Familia Uzcátegui Mora</div>
+            <div class="topbar__subtitle">Árbol genealógico colaborativo (frontend)</div>
+          </div>
+        </div>
+        <div class="topbar__actions">
+          <label class="switch" title="Modo administrador (demo)">
+            <input id="adminToggle" type="checkbox" />
+            <span class="switch__ui"></span>
+            <span class="switch__label">Admin</span>
+          </label>
+          <button id="resetDemo" class="btn btn--ghost" type="button">Restablecer datos</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="treePanel" aria-label="Árbol genealógico">
+          <div class="treePanel__header">
+            <div>
+              <div class="sectionTitle">Árbol</div>
+              <div class="sectionHint">
+                En móvil: desplázate (horizontal/vertical). En escritorio: también puedes hacer scroll.
+              </div>
+            </div>
+            <div class="treePanel__tools">
+              <button id="zoomOut" class="btn btn--ghost" type="button">−</button>
+              <button id="zoomReset" class="btn btn--ghost" type="button">100%</button>
+              <button id="zoomIn" class="btn btn--ghost" type="button">+</button>
+            </div>
+          </div>
+
+          <div class="treeViewport" id="treeViewport">
+            <div class="treeCanvas" id="treeCanvas" role="img" aria-label="Gráfico del árbol genealógico">
+              <!-- Render dinámico -->
+            </div>
+          </div>
+        </section>
+
+        <aside class="requestsPanel" aria-label="Solicitudes de cambios">
+          <div class="requestsPanel__header">
+            <div>
+              <div class="sectionTitle">Cambios sugeridos</div>
+              <div class="sectionHint">
+                Se muestran por orden de envío. Como admin, puedes aprobar o rechazar.
+              </div>
+            </div>
+            <div class="pillRow">
+              <span class="pill pill--pending" id="pendingCount">Pendientes: 0</span>
+              <span class="pill pill--approved" id="approvedCount">Aprobadas: 0</span>
+              <span class="pill pill--rejected" id="rejectedCount">Rechazadas: 0</span>
+            </div>
+          </div>
+
+          <div class="requestsList" id="requestsList" aria-live="polite">
+            <!-- Render dinámico -->
+          </div>
+        </aside>
+
+        <section class="formPanel" aria-label="Formulario de envío">
+          <div class="formPanel__header">
+            <div>
+              <div class="sectionTitle">Enviar solicitud</div>
+              <div class="sectionHint">
+                Esto no edita el árbol directo: crea una solicitud para aprobación.
+              </div>
+            </div>
+          </div>
+
+          <form id="requestForm" class="form">
+            <div class="grid">
+              <div class="field">
+                <label for="reqType">Tipo de solicitud</label>
+                <select id="reqType" name="reqType" required>
+                  <option value="add_person" selected>Agregar persona</option>
+                  <option value="edit_person">Modificar persona</option>
+                </select>
+              </div>
+
+              <div class="field" id="objectiveWrap" hidden>
+                <label for="objectiveName">Persona objetivo (Nombre y Apellido)</label>
+                <input
+                  id="objectiveName"
+                  name="objectiveName"
+                  type="text"
+                  placeholder="Ej: Carmelo Uzcátegui"
+                />
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="grid">
+              <div class="field">
+                <label for="firstName">Nombre</label>
+                <input id="firstName" name="firstName" type="text" placeholder="Ej: José" required />
+              </div>
+              <div class="field">
+                <label for="lastName">Apellido</label>
+                <input id="lastName" name="lastName" type="text" placeholder="Ej: Uzcátegui" required />
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label for="birthDate">Fecha de nacimiento</label>
+                <input id="birthDate" name="birthDate" type="date" required />
+              </div>
+
+              <div class="field">
+                <label>Fallecimiento</label>
+                <div class="inline">
+                  <label class="check">
+                    <input id="isAlive" name="isAlive" type="checkbox" checked />
+                    <span>Está vivo</span>
+                  </label>
+                  <input
+                    id="deathDate"
+                    name="deathDate"
+                    type="date"
+                    disabled
+                    aria-label="Fecha de deceso"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label for="location">Dónde se encuentra actualmente</label>
+                <input id="location" name="location" type="text" placeholder="Ej: Caracas, Venezuela" />
+              </div>
+
+              <div class="field">
+                <label for="photos">Fotos (opcional)</label>
+                <input id="photos" name="photos" type="file" accept="image/*" multiple />
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="field">
+                <label for="relationship">Relación</label>
+                <select id="relationship" name="relationship" required>
+                  <option value="" selected>Selecciona...</option>
+                  <option value="child_of">Hijo/a de</option>
+                  <option value="spouse_of">Esposo/a de</option>
+                  <option value="sibling_of">Hermano/a de</option>
+                  <option value="parent_of">Papá o mamá de</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="relatedName">Nombre (según relación)</label>
+                <input
+                  id="relatedName"
+                  name="relatedName"
+                  type="text"
+                  placeholder="Ej: Albina Mora"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid--wide">
+              <div class="field">
+                <label for="requesterName">Quién solicita (tu nombre)</label>
+                <input
+                  id="requesterName"
+                  name="requesterName"
+                  type="text"
+                  placeholder="Ej: Samuel"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label for="notes">Notas (opcional)</label>
+                <input id="notes" name="notes" type="text" placeholder="Ej: Falta confirmar fecha exacta" />
+              </div>
+            </div>
+
+            <div class="formActions">
+              <div class="muted">
+                Al enviar, verás la solicitud resumida en la barra de la derecha.
+              </div>
+              <button class="btn btn--primary" type="submit">Enviar</button>
+            </div>
+          </form>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span class="muted">
+          Prototipo sin base de datos: guarda en tu navegador (localStorage).
+        </span>
+      </footer>
+    </div>
+
+    <div class="modal" id="photoModal" aria-hidden="true">
+      <div class="modal__backdrop" data-close="true"></div>
+      <div class="modal__dialog" role="dialog" aria-modal="true" aria-label="Fotos">
+        <div class="modal__top">
+          <div class="modal__title" id="modalTitle">Fotos</div>
+          <button class="btn btn--ghost" type="button" id="closeModal">Cerrar</button>
+        </div>
+        <div class="modal__main">
+          <div class="profile">
+            <div class="profile__name" id="profileName">—</div>
+            <div class="profile__meta" id="profileMeta"></div>
+            <div class="profile__links" id="profileLinks"></div>
+          </div>
+          <div class="modal__photo">
+            <img id="modalMainImg" alt="Foto" />
+          </div>
+        </div>
+        <div class="modal__thumbs" id="modalThumbs"></div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
+
