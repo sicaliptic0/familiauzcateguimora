@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Familia — Árbol Genealógico</title>
+    <meta
+      name="description"
+      content="Árbol genealógico de la familia Uzcategui Mora: linajes y solicitudes de cambios."
+    />
+    <title>Árbol genealógico de la familia Uzcategui Mora</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -12,17 +16,12 @@
         <div class="topbar__brand">
           <div class="mark" aria-hidden="true"></div>
           <div>
-            <div class="topbar__title">Familia Uzcátegui Mora</div>
-            <div class="topbar__subtitle">Árbol genealógico colaborativo (frontend)</div>
+            <div class="topbar__title">Árbol genealógico de la familia Uzcategui Mora</div>
           </div>
         </div>
         <div class="topbar__actions">
-          <label class="switch" title="Modo administrador (demo)">
-            <input id="adminToggle" type="checkbox" />
-            <span class="switch__ui"></span>
-            <span class="switch__label">Admin</span>
-          </label>
-          <button id="resetDemo" class="btn btn--ghost" type="button">Restablecer datos</button>
+          <a class="btn btn--admin" href="./admin.html">Panel admin</a>
+          <button id="addData" class="btn btn--primary" type="button">Agregar datos</button>
         </div>
       </header>
 
@@ -33,6 +32,16 @@
               <div class="sectionTitle">Árbol</div>
               <div class="sectionHint">
                 En móvil: desplázate (horizontal/vertical). En escritorio: también puedes hacer scroll.
+              </div>
+              <div class="treeLegend" aria-label="Leyenda de líneas">
+                <div class="treeLegend__row">
+                  <span class="treeLegend__sample treeLegend__sample--blood" aria-hidden="true"></span>
+                  <span class="treeLegend__text"><strong>Línea continua</strong> (color del linaje): hijo de sangre.</span>
+                </div>
+                <div class="treeLegend__row">
+                  <span class="treeLegend__sample treeLegend__sample--afecto" aria-hidden="true"></span>
+                  <span class="treeLegend__text"><strong>Línea discontinua</strong> (tono ámbar): hijo de afecto.</span>
+                </div>
               </div>
             </div>
             <div class="treePanel__tools">
@@ -54,13 +63,8 @@
             <div>
               <div class="sectionTitle">Cambios sugeridos</div>
               <div class="sectionHint">
-                Se muestran por orden de envío. Como admin, puedes aprobar o rechazar.
+                Se muestran por orden de envío. Solo el admin puede aprobarlas.
               </div>
-            </div>
-            <div class="pillRow">
-              <span class="pill pill--pending" id="pendingCount">Pendientes: 0</span>
-              <span class="pill pill--approved" id="approvedCount">Aprobadas: 0</span>
-              <span class="pill pill--rejected" id="rejectedCount">Rechazadas: 0</span>
             </div>
           </div>
 
@@ -69,10 +73,10 @@
           </div>
         </aside>
 
-        <section class="formPanel" aria-label="Formulario de envío">
+        <section class="formPanel" id="sendRequest" aria-label="Formulario de envío">
           <div class="formPanel__header">
             <div>
-              <div class="sectionTitle">Enviar solicitud</div>
+              <div class="sectionTitle">Enviar solicitud para cambiar o agregar datos</div>
               <div class="sectionHint">
                 Esto no edita el árbol directo: crea una solicitud para aprobación.
               </div>
@@ -197,12 +201,6 @@
           </form>
         </section>
       </main>
-
-      <footer class="footer">
-        <span class="muted">
-          Prototipo sin base de datos: guarda en tu navegador (localStorage).
-        </span>
-      </footer>
     </div>
 
     <div class="modal" id="photoModal" aria-hidden="true">
@@ -226,6 +224,8 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./supabaseClient.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -81,6 +81,9 @@ body::before {
 .topbar__title {
   font-weight: 700;
   letter-spacing: 0.2px;
+  font-size: clamp(13px, 1.85vw, 17px);
+  line-height: 1.28;
+  max-width: min(640px, 58vw);
 }
 .topbar__subtitle {
   font-size: 12px;
@@ -111,6 +114,11 @@ body::before {
 .treePanel { grid-area: tree; }
 .requestsPanel { grid-area: requests; }
 .formPanel { grid-area: form; }
+
+/* Hace que scrollIntoView deje espacio por la topbar */
+#sendRequest {
+  scroll-margin-top: 90px;
+}
 
 .treePanel,
 .requestsPanel,
@@ -147,6 +155,61 @@ body::before {
 
 .sectionTitle { font-weight: 700; }
 .sectionHint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.treeLegend {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 760px;
+}
+.treeLegend__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.treeLegend__text {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.treeLegend__text strong {
+  color: rgba(246, 244, 240, 0.82);
+  font-weight: 650;
+}
+.treeLegend__sample {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+.treeLegend__sample--blood {
+  border-bottom: 2.5px solid rgba(34, 197, 94, 0.95);
+}
+.treeLegend__sample--afecto {
+  border-bottom: 2.5px dashed rgba(230, 188, 118, 0.92);
+}
+.node--afecto {
+  border-style: dashed;
+}
+
+.treeCanvas.treeCanvas--lineageFocus .treeSvg path.treeEdge {
+  opacity: 0.14;
+}
+.treeCanvas.treeCanvas--lineageFocus .treeSvg path.treeEdge--focus {
+  opacity: 1;
+  stroke-width: 3.15;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.12));
+}
+.treeCanvas.treeCanvas--lineageFocus .node--lineageDim {
+  opacity: 0.34;
+}
+.treeCanvas.treeCanvas--lineageFocus .node--lineageFocus {
+  opacity: 1;
+  filter: saturate(1.12);
+}
 
 .treePanel__tools { display: flex; gap: 8px; align-items: center; }
 
@@ -369,6 +432,12 @@ input, select {
   padding: 0 10px;
   outline: none;
 }
+
+/* Selects legibles en tema oscuro */
+select, option {
+  color: rgba(246, 244, 240, 0.92);
+  background-color: rgba(18, 22, 24, 0.95);
+}
 input::placeholder { color: rgba(255, 255, 255, 0.45); }
 input:focus, select:focus {
   border-color: rgba(121, 168, 255, 0.55);
@@ -424,13 +493,22 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 .btn--danger { border-color: rgba(255, 122, 122, 0.40); }
 .btn--ghost { background: rgba(0, 0, 0, 0.12); }
+.btn--admin {
+  border-color: rgba(200, 164, 106, 0.55);
+  background: linear-gradient(135deg, rgba(200, 164, 106, 0.22), rgba(143, 174, 122, 0.14));
+  color: rgba(252, 250, 246, 0.96);
+  font-weight: 650;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn--admin:hover {
+  background: linear-gradient(135deg, rgba(200, 164, 106, 0.32), rgba(143, 174, 122, 0.22));
+  border-color: rgba(200, 164, 106, 0.78);
+}
 
 .muted { color: var(--muted); font-size: 12px; }
-
-.footer {
-  padding: 14px 18px 22px;
-  text-align: center;
-}
 
 /* Switch */
 .switch {
@@ -485,6 +563,7 @@ input:disabled, select:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @media (max-width: 560px) {
   .topbar { flex-direction: column; align-items: stretch; }
+  .topbar__title { max-width: 100%; font-size: 14px; }
   .topbar__actions { justify-content: space-between; }
   .grid, .grid--wide { grid-template-columns: 1fr; }
   .treeCanvas { min-width: 900px; } /* facilita pan horizontal */

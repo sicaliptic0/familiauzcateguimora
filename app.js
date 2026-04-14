@@ -1,7 +1,10 @@
 /* eslint-disable no-alert */
-const STORAGE_KEY = "family_tree_demo_v2";
+const STORAGE_KEY = "family_tree_familia_v5";
 const DEFAULT_CENTER_ON_LOAD = true;
+/** Línea “hijo de afecto” (trazo discontinuo; tono distinto al de sangre) */
+const PUTATIVE_EDGE_STROKE = "rgba(230, 188, 118, 0.92)";
 const ENABLE_NODE_DRAG = false;
+let sb = null;
 
 function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -34,12 +37,11 @@ function readFileAsDataUrl(file) {
 
 function defaultState() {
   // Base: Carmelo Uzcátegui (Nono) + Albina Mora (Nona)
-  // - 12 hijos
-  // - cada hijo tiene 1 cónyuge
-  // - desde el centro de la pareja salen las líneas a los nietos (2 por hijo)
+  // - 12 hijos con nombres reales + nietos por rama
+  // - hijo de afecto: sale del lado del hijo (ver leyenda en index)
   const nono = {
     id: "p_nono",
-    firstName: "Carmelo",
+    firstName: "Carmen Antonio (Carmelo)",
     lastName: "Uzcátegui",
     birthDate: "",
     isAlive: false,
@@ -76,61 +78,145 @@ function defaultState() {
   };
 
   const lineageColorById = {};
-  // Paleta más “familiar” (tierra + verde suave + azul grisáceo)
+  // Paleta más viva (mejor contraste entre linajes)
   const palette = [
-    "#6FA8A1", // verde agua
-    "#8FAE7A", // oliva suave
-    "#C8A46A", // arena
-    "#B9856B", // terracota suave
-    "#9A8FB0", // lavanda gris
-    "#7A94B0", // azul pizarra
-    "#B7A38F", // taupe
-    "#A08D7A", // madera
-    "#8E9B86", // salvia
-    "#C29C90", // rosa viejo
-    "#8798A6", // gris azulado
-    "#B2B08A", // caqui suave
+    "#14b8a6",
+    "#22c55e",
+    "#eab308",
+    "#f97316",
+    "#ec4899",
+    "#6366f1",
+    "#06b6d4",
+    "#a855f7",
+    "#ef4444",
+    "#3b82f6",
+    "#84cc16",
+    "#f43f5e",
   ];
 
-  function addPerson(id, firstName, lastName) {
+  function addPerson(id, firstName, lastName, opts = {}) {
     peopleById[id] = {
       id,
       firstName,
       lastName,
       birthDate: "",
-      isAlive: true,
-      deathDate: "",
+      isAlive: opts.isAlive !== false,
+      deathDate: opts.deathDate || "",
       location: "",
       photos: [],
       email: "",
       instagram: "",
+      putative: Boolean(opts.putative),
     };
   }
 
-  // 12 hijos
-  for (let i = 1; i <= 12; i += 1) {
-    const childId = `p_h${i}`;
-    addPerson(childId, `Hijo${i}`, "Uzcátegui Mora");
+  const hijos = [
+    { firstName: "Teodulfo Antonio", lastName: "Uzcátegui Mora", isAlive: false, grandchildren: [] },
+    { firstName: "Luis Eudoro", lastName: "Uzcátegui Mora", isAlive: true, grandchildren: [] },
+    {
+      firstName: "José Ricardo",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Eddy", "Ricardo", "Freddy", "Gerson", "Ender", "Nubia"],
+    },
+    {
+      firstName: "Alida Cecilia",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Yadelsy Mariana", "Alexander José"],
+    },
+    {
+      firstName: "Ana Edita",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Francisco Javier", "Luisana Priscila", "Anyi Gustavo", "César David", "Antony José"],
+    },
+    {
+      firstName: "Eudes Marino",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Wilmer", "Richar", "Karina", "Yilver"],
+    },
+    {
+      firstName: "Carmen Alicia",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Carlos Eduardo", "Carmen Abileny"],
+    },
+    {
+      firstName: "Tarcisio de la Cruz",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Flor María", "Jhon David", "Marcos"],
+    },
+    {
+      firstName: "Rosa Emilda",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Daniel Alfredo", "José Gregorio"],
+    },
+    {
+      firstName: "Daniel Alfredo",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Jesús", "Fabiana Carolina", "Anthony"],
+    },
+    {
+      firstName: "Olga María",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: [
+        { name: "Samuel Dario A." },
+        { name: "Gerardo José" },
+        { name: "Rosa Emilia", putative: true },
+      ],
+    },
+    {
+      firstName: "Carlos Alfonso",
+      lastName: "Uzcátegui Mora",
+      isAlive: true,
+      grandchildren: ["Samuel", "Génesis", "Nicol"],
+    },
+  ];
 
-    const spouseId = `p_h${i}_s`;
-    addPerson(spouseId, `Cónyuge${i}`, "—");
+  const sinConyuge = new Set([1, 2, 4]); // Teodulfo, Luis Eudoro, Alida Cecilia
+  const rotuloConyuge = ["Cónyuge", "Pareja", "Papá"];
+  let idxConyuge = 0;
 
-    const coupleId = `v_couple_h${i}`;
-    couplesById[coupleId] = { a: childId, b: spouseId };
-    lineageColorById[coupleId] = palette[(i - 1) % palette.length];
+  for (let i = 0; i < hijos.length; i += 1) {
+    const hi = i + 1;
+    const childId = `p_h${hi}`;
+    addPerson(childId, hijos[i].firstName, hijos[i].lastName, {
+      isAlive: hijos[i].isAlive,
+      deathDate: hijos[i].isAlive ? "" : (hijos[i].deathDate || ""),
+    });
+
+    const coupleId = `v_couple_h${hi}`;
+    if (sinConyuge.has(hi)) {
+      couplesById[coupleId] = { a: childId, b: null };
+    } else {
+      const spouseId = `p_h${hi}_s`;
+      const etiqueta = rotuloConyuge[idxConyuge % rotuloConyuge.length];
+      idxConyuge += 1;
+      addPerson(spouseId, etiqueta, "—");
+      couplesById[coupleId] = { a: childId, b: spouseId };
+    }
+    lineageColorById[coupleId] = palette[i % palette.length];
     childrenByParentId[coupleId] = [];
     childrenByParentId[rootCoupleId].push(coupleId);
 
-    // 2 nietos por cada hijo
-    for (let j = 1; j <= 2; j += 1) {
-      const grandId = `p_h${i}_c${j}`;
-      addPerson(grandId, `Nieto${i}.${j}`, "Uzcátegui");
+    const grands = hijos[i].grandchildren || [];
+    for (let j = 0; j < grands.length; j += 1) {
+      const g = grands[j];
+      const nm = typeof g === "string" ? g : g?.name;
+      const put = typeof g === "object" && g ? Boolean(g.putative) : false;
+      const grandId = `p_h${hi}_c${j + 1}`;
+      addPerson(grandId, nm || "—", "Uzcátegui", { putative: put });
       childrenByParentId[coupleId].push(grandId);
     }
   }
 
   return {
-    adminMode: false,
     zoom: 0.7,
     peopleById,
     // Relación simple para el prototipo: parentId -> childIds
@@ -190,6 +276,7 @@ function normalizePersonPhotos(person) {
     instagram: "",
     ...person,
     photos: photos.filter(Boolean),
+    putative: Boolean(person.putative),
   };
 }
 
@@ -270,8 +357,22 @@ function normalizePeople() {
 
 function findCoupleIdByMember(personId) {
   for (const [cid, c] of Object.entries(state.couplesById || {})) {
-    if (c?.a === personId || c?.b === personId) return cid;
+    if (c?.a === personId || (c?.b != null && c.b === personId)) return cid;
   }
+  return "";
+}
+
+/** Linaje hijo+nietos (v_couple_hN); vacío en abuelos raíz. */
+function lineageKeyForPerson(personId) {
+  if (!personId || personId === "p_nono" || personId === "p_nona") return "";
+  const pc = buildParentMap(state.childrenByParentId || {});
+  let cur = pc[personId];
+  while (cur) {
+    if (String(cur).startsWith("v_couple_h")) return cur;
+    cur = pc[cur];
+  }
+  const cid = findCoupleIdByMember(personId);
+  if (cid && String(cid).startsWith("v_couple_h")) return cid;
   return "";
 }
 
@@ -311,8 +412,7 @@ function buildSubtree(personId, pathSet) {
 
 function layoutTree() {
   // Layout NUEVO (compacto y estable):
-  // - Solo soporta el “modo familia” actual: pareja raíz -> 12 parejas (hijo+cónyuge) -> nietos
-  // - Bloques por linaje en grilla: reduce scroll lateral y evita desplazamientos raros
+  // - Pareja raíz -> 12 ramas (hijo, opcional cónyuge) -> nietos en 3 bandas (4+4+4)
   const nodeW = 190;
   const nodeH = 66;
   const spouseW = 120;
@@ -324,10 +424,8 @@ function layoutTree() {
   const rootCoupleW = nodeW * 2 + rootSpouseGap;
   const gapY1 = 126; // raíz -> hijos (más aire para líneas)
   const gapY2 = 72; // hijos -> nietos (más aire para líneas)
-  const blockGapY = 40; // espacio extra entre bloques (evita cruces)
-
   const positions = new Map(); // id -> {x,y}
-  const edges = []; // {from,to,color,isSpouse?}
+  const edges = []; // {from,to,color,isSpouse?, lineage?, isPutative?}
 
   const rootId = (state.roots || [])[0];
   const rootCouple = rootId ? (state.couplesById || {})[rootId] : null;
@@ -336,13 +434,7 @@ function layoutTree() {
   }
 
   const childCoupleIds = (state.childrenByParentId[rootId] || []).filter((cid) => (state.couplesById || {})[cid]);
-  // 12 hijos en 3 alturas (4 columnas x 3 filas)
-  const colCount = 4; // 4 grupos
-  const levelCount = 3; // 3 alturas (hijos)
-  const levelStep = 112; // distancia vertical entre alturas de hijos (más pirámide)
-  const gridW = colCount * coupleW + Math.max(0, colCount - 1) * gapX;
-  const contentW = Math.max(rootCoupleW, gridW);
-  const contentH = 740; // se ajusta al final con maxY
+  const levelStep = 112; // distancia vertical entre alturas de hijos (pirámide)
 
   // Raíz centrada
   const rootY = 14;
@@ -358,6 +450,39 @@ function layoutTree() {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
+  function coupleSlotW(cid) {
+    const c = (state.couplesById || {})[cid];
+    if (!c?.a) return coupleW;
+    return c.b ? coupleW : nodeW;
+  }
+
+  function rowWidthFor(ids) {
+    if (!ids.length) return 0;
+    return ids.reduce((acc, idci, i) => acc + coupleSlotW(idci) + (i < ids.length - 1 ? gapX : 0), 0);
+  }
+
+  function rowXsFor(ids, startX) {
+    let cur = startX;
+    return ids.map((idci) => {
+      const xa = cur;
+      cur += coupleSlotW(idci) + gapX;
+      return xa;
+    });
+  }
+
+  function rowCenterAndWidth(xs, ids) {
+    if (!ids.length) return { minX: 0, maxX: 0, center: 0 };
+    let minX = Infinity;
+    let maxX = -Infinity;
+    ids.forEach((idci, i) => {
+      const xa = xs[i];
+      const w = coupleSlotW(idci);
+      minX = Math.min(minX, xa);
+      maxX = Math.max(maxX, xa + w);
+    });
+    return { minX, maxX, center: (minX + maxX) / 2 };
+  }
+
   // Orden estable por número de hijo: v_couple_h1..v_couple_h12
   const sortedChildCouples = [...childCoupleIds].sort((a, b) => {
     const na = Number(String(a).match(/h(\d+)/)?.[1] || 0);
@@ -365,14 +490,7 @@ function layoutTree() {
     return na - nb;
   });
 
-  // Pirámide automática (sin solapes entre HIJOS):
-  // - nivel inferior: 6 parejas
-  // - nivel medio: 4 parejas (centradas entre las de abajo)
-  // - nivel superior: 2 parejas (centradas entre las del medio)
-  // Orden por nacimiento:
-  // - fila superior: H1–H2
-  // - fila media: H3–H6
-  // - fila inferior (base): H7–H12
+  // Pirámide: H1–H2 arriba, H3–H6 medio, H7–H12 base (anchos variables si no hay cónyuge)
   const level2 = sortedChildCouples.slice(0, 2);
   const level1 = sortedChildCouples.slice(2, 6);
   const level0 = sortedChildCouples.slice(6, 12);
@@ -381,35 +499,26 @@ function layoutTree() {
   const baseY1 = rootY + gapY1 + 1 * levelStep; // medio
   const baseY0 = rootY + gapY1 + 2 * levelStep; // inferior
 
-  const level0W = 6 * coupleW + 5 * gapX;
+  const level0W = rowWidthFor(level0);
+  const contentW = Math.max(rootCoupleW + 48, level0W + 120, 760);
   const level0X0 = (contentW - level0W) / 2;
-  const x0 = level0.map((_, i) => level0X0 + i * (coupleW + gapX));
-  // fila media (4) centrada respecto a la base (6)
-  const level1W = 4 * coupleW + 3 * gapX;
+  const x0 = rowXsFor(level0, level0X0);
+
+  const level1W = rowWidthFor(level1);
   const level1X0 = level0X0 + (level0W - level1W) / 2;
-  const x1 = level1.map((_, i) => level1X0 + i * (coupleW + gapX));
-  // fila superior (2) centrada respecto a la fila media (4)
-  const level2W = 2 * coupleW + 1 * gapX;
+  const x1 = rowXsFor(level1, level1X0);
+
+  const level2W = rowWidthFor(level2);
   const level2X0 = level0X0 + (level0W - level2W) / 2;
-  const x2 = level2.map((_, i) => level2X0 + i * (coupleW + gapX));
+  const x2 = rowXsFor(level2, level2X0);
 
-  // Centrado por niveles:
-  // - nivel medio centrado respecto al inferior (nivel 0)
-  // - nivel superior centrado respecto al medio (nivel 1)
-  // - raíz centrada respecto al nivel inferior (la base más ancha)
-  function levelBounds(xs) {
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs) + coupleW;
-    return { minX, maxX, center: (minX + maxX) / 2 };
-  }
-
-  const b0 = levelBounds(x0);
-  const b1raw = levelBounds(x1);
+  const b0 = rowCenterAndWidth(x0, level0);
+  const b1raw = rowCenterAndWidth(x1, level1);
   const shift1 = b0.center - b1raw.center;
   const x1c = x1.map((v) => v + shift1);
 
-  const b1 = levelBounds(x1c);
-  const b2raw = levelBounds(x2);
+  const b1 = rowCenterAndWidth(x1c, level1);
+  const b2raw = rowCenterAndWidth(x2, level2);
   const shift2 = b1.center - b2raw.center;
   const x2c = x2.map((v) => v + shift2);
 
@@ -420,7 +529,13 @@ function layoutTree() {
   positions.set(rootA, { x: rootLeftX, y: rootY });
   positions.set(rootB, { x: rootLeftX + nodeW + rootSpouseGap, y: rootY });
   positions.set(rootId, { x: rootLeftX + (rootCoupleW / 2) - (nodeW / 2), y: rootY });
-  edges.push({ from: rootA, to: rootB, color: "rgba(255,255,255,0.16)", isSpouse: true });
+  edges.push({
+    from: rootA,
+    to: rootB,
+    color: "rgba(255,255,255,0.16)",
+    isSpouse: true,
+    lineage: "__root__",
+  });
 
   const couplePos = new Map(); // coupleId -> {x,y}
   level0.forEach((cid, i) => couplePos.set(cid, { x: x0[i], y: baseY0 }));
@@ -435,18 +550,35 @@ function layoutTree() {
     if (!couple || !pos) continue;
     const x = pos.x;
     const y = pos.y;
+    const slotW = coupleSlotW(cid);
 
     positions.set(couple.a, { x, y });
-    positions.set(couple.b, { x: x + nodeW - overlap, y: y + 7 });
-    positions.set(cid, { x: x + (coupleW / 2) - (nodeW / 2), y });
+    if (couple.b) {
+      positions.set(couple.b, { x: x + nodeW - overlap, y: y + 7 });
+      positions.set(cid, { x: x + slotW / 2 - nodeW / 2, y });
+      edges.push({
+        from: couple.a,
+        to: couple.b,
+        color: "rgba(255,255,255,0.14)",
+        isSpouse: true,
+        lineage: cid,
+      });
+    } else {
+      positions.set(cid, { x, y });
+    }
 
-    const color = withAlpha((state.lineageColorById || {})[cid], 0.55);
-    edges.push({ from: couple.a, to: couple.b, color: "rgba(255,255,255,0.14)", isSpouse: true });
-    edges.push({ from: rootId, to: cid, color: "rgba(255,255,255,0.10)" });
+    const lineHex = (state.lineageColorById || {})[cid];
+    const color = withAlpha(lineHex, 0.82);
+    edges.push({
+      from: rootId,
+      to: cid,
+      color: withAlpha(lineHex, 0.38),
+      lineage: cid,
+    });
 
     // Nietos en segunda pasada: siempre por debajo de TODOS los hijos
     const kids = (state.childrenByParentId[cid] || []).filter((pid) => (state.peopleById || {})[pid]);
-    pendingGrandkids.push({ cid, x, y, kids, color });
+    pendingGrandkids.push({ cid, x, y, kids, color, slotW });
   }
 
   // Segunda pasada: nietos SIEMPRE debajo de todos los hijos (sin superposición con hijos)
@@ -455,7 +587,8 @@ function layoutTree() {
   for (const cid of sortedChildCouples) {
     const couple = state.couplesById?.[cid];
     if (!couple) continue;
-    childPeopleIds.push(couple.a, couple.b);
+    childPeopleIds.push(couple.a);
+    if (couple.b) childPeopleIds.push(couple.b);
   }
   childPeopleIds.push(rootA, rootB);
   for (const pid of childPeopleIds) {
@@ -468,63 +601,103 @@ function layoutTree() {
 
   const globalGrandTop = childrenMaxBottom + gapY2 + 26;
   const grandGapY = 18;
-  const grandMinGapX = 22; // separación mínima entre nietos (evita superposición)
+  const grandMinGapX = 16; // separación mínima entre nietos (evita superposición)
+  const grandBandGapY = 40; // espacio entre las 3 filas de nietos (4+4+4)
+  const grandColsPerRow = 6; // máx. nietos por fila bajo cada pareja
 
-  // Nietos en 2 niveles:
-  // - nivel 0 (arriba): 8 pares
-  // - nivel 1 (abajo): 4 pares
-  // Ambos niveles centrados con la pirámide de hijos.
-  const topPairs = pendingGrandkids.slice(0, 8);
-  const bottomPairs = pendingGrandkids.slice(8, 12);
-  const levels = [topPairs, bottomPairs];
-
-  const rowH = nodeH + grandGapY; // 2 filas por nivel (porque son 2 nietos)
-  const levelGapY = 32;
-  const levelH = rowH * 2 + levelGapY;
-  const rowInterleaveX = 18; // intercalado entre las 2 filas
-
-  function placeGrandLevel(pairs, levelIdx) {
-    // primero resolvemos X por parejas (no por nieto)
-    const desiredPairs = pairs.map((p) => ({
-      fromCid: p.cid,
-      desiredX: p.x + Math.max(0, (coupleW - nodeW) / 2),
-      kids: p.kids,
-      color: p.color,
-    })).sort((a, b) => a.desiredX - b.desiredX);
-
-    let cursorX = -Infinity;
-    const placed = [];
-    for (const pair of desiredPairs) {
-      const x = Math.max(pair.desiredX, cursorX + nodeW + grandMinGapX);
-      cursorX = x;
-      placed.push({ ...pair, x });
+  function layoutGrandBlock(kids) {
+    if (!kids.length) return { rows: [], blockW: 0, blockH: 0, rowH: nodeH + grandGapY };
+    const rows = [];
+    for (let i = 0; i < kids.length; i += grandColsPerRow) {
+      rows.push(kids.slice(i, i + grandColsPerRow));
     }
-
-    // centra este nivel respecto a la base de hijos (b0.center)
-    if (placed.length) {
-      const minX = Math.min(...placed.map((p) => p.x));
-      const maxX = Math.max(...placed.map((p) => p.x + nodeW));
-      const center = (minX + maxX) / 2;
-      const dx = b0.center - center;
-      for (const p of placed) p.x += dx;
-    }
-
-    // asigna 2 filas (nieto 1 y 2), intercaladas en X
-    const baseY = globalGrandTop + levelIdx * levelH;
-    for (const p of placed) {
-      const kids = p.kids || [];
-      kids.forEach((pid, kIdx) => {
-        const rowIdx = Math.min(1, Math.max(0, kIdx));
-        const y = baseY + rowIdx * rowH;
-        const x = p.x + (rowIdx ? rowInterleaveX : 0);
-        positions.set(pid, { x, y });
-        edges.push({ from: p.fromCid, to: pid, color: p.color });
-      });
-    }
+    const rowH = nodeH + grandGapY;
+    const rowWidths = rows.map((row) => row.length * nodeW + Math.max(0, row.length - 1) * grandMinGapX);
+    const blockW = Math.max(...rowWidths, nodeW);
+    const blockH = rows.length * rowH - grandGapY;
+    return { rows, blockW, blockH, rowH };
   }
 
-  placeGrandLevel(levels[0], 0);
-  placeGrandLevel(levels[1], 1);
+  /**
+   * Coloca nietos en una banda (varios por pareja, varias filas si hace falta).
+   * Aristas: linaje normal desde el centro virtual de la pareja; putativo desde el hijo (couple.a), lado izquierdo.
+   */
+  function placeGrandBand(pairs, baseY) {
+    let bandBottom = baseY;
+    const blocks = [];
+    for (const p of pairs) {
+      const kids = (p.kids || []).filter((pid) => (state.peopleById || {})[pid]);
+      const layout = layoutGrandBlock(kids);
+      const slotW = p.slotW != null ? p.slotW : coupleW;
+      const centerX = p.x + slotW / 2;
+      blocks.push({
+        fromCid: p.cid,
+        centerX,
+        kids,
+        color: p.color,
+        ...layout,
+      });
+    }
+
+    blocks.sort((a, b) => a.centerX - b.centerX);
+
+    let cursorRight = -Infinity;
+    const placed = [];
+    for (const b of blocks) {
+      if (!b.rows.length) continue;
+      let left = b.centerX - b.blockW / 2;
+      left = Math.max(left, cursorRight + grandMinGapX);
+      cursorRight = left + b.blockW;
+      placed.push({ ...b, left });
+    }
+
+    if (placed.length) {
+      const minX = Math.min(...placed.map((p) => p.left));
+      const maxX = Math.max(...placed.map((p) => p.left + p.blockW));
+      const center = (minX + maxX) / 2;
+      const dx = b0.center - center;
+      for (const p of placed) p.left += dx;
+    }
+
+    if (!placed.length) return bandBottom;
+
+    for (const blk of placed) {
+      let y = baseY;
+      for (const row of blk.rows) {
+        const rowW = row.length * nodeW + Math.max(0, row.length - 1) * grandMinGapX;
+        let x = blk.left + Math.max(0, (blk.blockW - rowW) / 2);
+        for (const pid of row) {
+          positions.set(pid, { x, y });
+          const couple = (state.couplesById || {})[blk.fromCid];
+          const hijoId = couple?.a;
+          const isPut = Boolean(hijoId && state.peopleById?.[pid]?.putative);
+          if (isPut && hijoId) {
+            edges.push({
+              from: hijoId,
+              to: pid,
+              color: PUTATIVE_EDGE_STROKE,
+              isPutative: true,
+              lineage: blk.fromCid,
+            });
+          } else {
+            edges.push({ from: blk.fromCid, to: pid, color: blk.color, lineage: blk.fromCid });
+          }
+          x += nodeW + grandMinGapX;
+        }
+        y += blk.rowH;
+      }
+      bandBottom = Math.max(bandBottom, baseY + blk.blockH);
+    }
+    return bandBottom;
+  }
+
+  const band1 = pendingGrandkids.slice(0, 4);
+  const band2 = pendingGrandkids.slice(4, 8);
+  const band3 = pendingGrandkids.slice(8, 12);
+  let nextGrandY = globalGrandTop;
+  nextGrandY = placeGrandBand(band1, nextGrandY) + grandBandGapY;
+  nextGrandY = placeGrandBand(band2, nextGrandY) + grandBandGapY;
+  placeGrandBand(band3, nextGrandY);
 
   // Centra el bloque completo de nietos respecto a la base (nivel 0)
   const grandIds = pendingGrandkids.flatMap((g) => g.kids);
@@ -643,8 +816,12 @@ function renderTree() {
       return { cx: base.x + nodeW / 2, top: base.y, bottom: base.y + nodeH };
     }
     const a = getPersonRenderBox(couple.a);
+    if (!a) return null;
+    if (!couple.b) {
+      return { cx: a.x + a.w / 2, top: a.y, bottom: a.y + a.h };
+    }
     const b = getPersonRenderBox(couple.b);
-    if (!a || !b) return null;
+    if (!b) return null;
     const aCx = a.x + a.w / 2;
     const bCx = b.x + b.w / 2;
     const cx = (aCx + bCx) / 2;
@@ -665,24 +842,36 @@ function renderTree() {
     if ((fromIsVirtual && !fromAnchor) || (!fromIsVirtual && !fromBox)) continue;
     if ((toIsVirtual && !toAnchor) || (!toIsVirtual && !toBox)) continue;
 
-    const x1 = fromIsVirtual ? fromAnchor.cx : (fromBox.x + fromBox.w / 2);
-    const y1 = fromIsVirtual ? fromAnchor.bottom : (fromBox.y + fromBox.h);
-    const x2 = toIsVirtual ? toAnchor.cx : (toBox.x + toBox.w / 2);
-    const y2 = toIsVirtual ? toAnchor.top : (toBox.y);
+    let x1 = fromIsVirtual ? fromAnchor.cx : (fromBox.x + fromBox.w / 2);
+    let y1 = fromIsVirtual ? fromAnchor.bottom : (fromBox.y + fromBox.h);
+    let x2 = toIsVirtual ? toAnchor.cx : (toBox.x + toBox.w / 2);
+    let y2 = toIsVirtual ? toAnchor.top : (toBox.y);
 
     const midY = (y1 + y2) / 2;
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    const d = e.isSpouse
-      ? (() => {
-        const y = (fromBox ? (fromBox.y + 18) : (fromAnchor.top + 18));
-        return `M ${x1} ${y} C ${(x1 + x2) / 2} ${y - 10}, ${(x1 + x2) / 2} ${y + 10}, ${x2} ${y}`;
-      })()
-      : `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+    let d = "";
+    if (e.isSpouse) {
+      const y = (fromBox ? (fromBox.y + 18) : (fromAnchor.top + 18));
+      d = `M ${x1} ${y} C ${(x1 + x2) / 2} ${y - 10}, ${(x1 + x2) / 2} ${y + 10}, ${x2} ${y}`;
+    } else if (e.isPutative && fromBox && toBox) {
+      // Desde el costado del hijo (no del centro pareja–cónyuge)
+      x1 = fromBox.x - 3;
+      y1 = fromBox.y + fromBox.h * 0.42;
+      x2 = toBox.x + toBox.w * 0.22;
+      y2 = toBox.y + 4;
+      const my = (y1 + y2) / 2;
+      d = `M ${x1} ${y1} C ${x1 - 36} ${my}, ${x2 - 30} ${my}, ${x2} ${y2}`;
+    } else {
+      d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+    }
     path.setAttribute("d", d);
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", e.color || "rgba(235, 228, 214, 0.28)");
-    path.setAttribute("stroke-width", e.isSpouse ? "2.2" : "2.2");
-    path.setAttribute("opacity", e.isSpouse ? "0.34" : "0.70");
+    path.setAttribute("stroke-width", e.isSpouse ? "2.2" : (e.isPutative ? "2.35" : "2.2"));
+    path.setAttribute("opacity", e.isSpouse ? "0.34" : (e.isPutative ? "0.88" : "0.70"));
+    if (e.isPutative) path.setAttribute("stroke-dasharray", "9 6");
+    path.classList.add("treeEdge");
+    if (e.lineage) path.setAttribute("data-lineage", e.lineage);
     svg.appendChild(path);
   }
 
@@ -698,7 +887,8 @@ function renderTree() {
     if (!person) continue;
     const node = document.createElement("div");
     const isSpouse = String(id).endsWith("_s") || safeText(person.lastName) === "—";
-    node.className = isSpouse ? "node node--spouse" : "node";
+    const putCls = person.putative ? " node--afecto" : "";
+    node.className = isSpouse ? "node node--spouse" : `node${putCls}`;
     const off = (state.nodeOffsets && state.nodeOffsets[id]) ? state.nodeOffsets[id] : { dx: 0, dy: 0 };
     node.style.left = `${p.x + (Number(off.dx) || 0)}px`;
     node.style.top = `${p.y + (Number(off.dy) || 0)}px`;
@@ -765,8 +955,49 @@ function renderTree() {
     if (ENABLE_NODE_DRAG) enableDragForNode(node, id, p);
   }
 
+  const paths = [...svg.querySelectorAll("path.treeEdge")];
+  let clearHoverT = 0;
+  function clearLineageFocus() {
+    canvas.classList.remove("treeCanvas--lineageFocus");
+    for (const pth of paths) {
+      pth.classList.remove("treeEdge--focus", "treeEdge--dim");
+    }
+    canvas.querySelectorAll(".node").forEach((n) => {
+      n.classList.remove("node--lineageFocus", "node--lineageDim");
+    });
+  }
+  function setLineageFocus(lineage) {
+    clearLineageFocus();
+    if (!lineage) return;
+    canvas.classList.add("treeCanvas--lineageFocus");
+    for (const pth of paths) {
+      const dl = pth.getAttribute("data-lineage") || "";
+      if (dl === lineage) pth.classList.add("treeEdge--focus");
+      else pth.classList.add("treeEdge--dim");
+    }
+    canvas.querySelectorAll(".node").forEach((n) => {
+      const nl = n.dataset.lineage || "";
+      if (nl === lineage) n.classList.add("node--lineageFocus");
+      else if (nl) n.classList.add("node--lineageDim");
+    });
+  }
+  function scheduleClearLineageFocus() {
+    clearTimeout(clearHoverT);
+    clearHoverT = window.setTimeout(() => clearLineageFocus(), 42);
+  }
+  for (const n of canvas.querySelectorAll(".node")) {
+    const pid = n.dataset.personId || "";
+    const lk = lineageKeyForPerson(pid);
+    n.dataset.lineage = lk;
+    if (!lk) continue;
+    n.addEventListener("mouseenter", () => {
+      clearTimeout(clearHoverT);
+      setLineageFocus(lk);
+    });
+    n.addEventListener("mouseleave", scheduleClearLineageFocus);
+  }
   if (renderedCount === 0) {
-    showTreeError(new Error("No se renderizó ningún perfil. Revisa si el estado guardado (localStorage) está corrupto y presiona “Restablecer datos”."));
+    showTreeError(new Error("No se renderizó ningún perfil. Revisa si el estado guardado (localStorage) está corrupto. Si necesitas, borra el localStorage del sitio y recarga."));
   }
 
   return { positions, nodeW, nodeH };
@@ -842,7 +1073,7 @@ function enableDragForNode(nodeEl, personId, basePos) {
 function statusLabel(status) {
   if (status === "approved") return { text: "Aprobado", cls: "status status--approved" };
   if (status === "rejected") return { text: "Rechazado", cls: "status status--rejected" };
-  return { text: "Pendiente", cls: "status status--pending" };
+  return { text: "Pendiente por aprobar", cls: "status status--pending" };
 }
 
 function requestTitle(req) {
@@ -856,13 +1087,6 @@ function requestTitle(req) {
 
 function renderRequests() {
   const list = document.getElementById("requestsList");
-  const pending = state.requests.filter((r) => r.status === "pending").length;
-  const approved = state.requests.filter((r) => r.status === "approved").length;
-  const rejected = state.requests.filter((r) => r.status === "rejected").length;
-  document.getElementById("pendingCount").textContent = `Pendientes: ${pending}`;
-  document.getElementById("approvedCount").textContent = `Aprobadas: ${approved}`;
-  document.getElementById("rejectedCount").textContent = `Rechazadas: ${rejected}`;
-
   const sorted = [...state.requests].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   list.innerHTML = "";
 
@@ -875,24 +1099,27 @@ function renderRequests() {
   }
 
   for (const req of sorted) {
-    const { text, cls } = statusLabel(req.status);
     const card = document.createElement("div");
     card.className = "card";
     card.dataset.requestId = req.id;
 
-    const created = new Date(req.createdAt || Date.now());
+    const created = new Date(req.createdAt || req.created_at || Date.now());
     const when = created.toLocaleString(undefined, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-    const p = req.payload || {};
+    const p = req.payload || req.payload_json || {};
     const aliveLine = p.isAlive ? "Vivo" : `Fallecido (${formatDate(p.deathDate)})`;
     const photoLine = (Array.isArray(p.photos) ? p.photos.length : (p.photo ? 1 : 0)) ? "Sí" : "No";
     const relLine = p.relationship ? String(p.relationship) : "—";
     const relNameLine = safeText(p.relatedName) || "—";
 
+    const st = String(req.status || "pending");
+    const stInfo = statusLabel(st);
+    const statusHtml = st === "approved" ? "" : `<span class="${stInfo.cls}">${stInfo.text}</span>`;
+
     card.innerHTML = `
       <div class="card__top">
         <div class="card__title">${requestTitle(req) || "Solicitud"}</div>
-        <div class="${cls}">${text}</div>
+        ${statusHtml}
       </div>
       <div class="card__meta">
         <div><b>Enviado por:</b> ${safeText(req.requesterName) || "—"} · <b>Fecha:</b> ${when}</div>
@@ -903,31 +1130,28 @@ function renderRequests() {
       </div>
     `;
 
-    if (state.adminMode) {
-      const actions = document.createElement("div");
-      actions.className = "card__actions";
-
-      const approveBtn = document.createElement("button");
-      approveBtn.className = "btn btn--primary";
-      approveBtn.type = "button";
-      approveBtn.textContent = "Aprobar";
-      approveBtn.disabled = req.status !== "pending";
-      approveBtn.addEventListener("click", () => approveRequest(req.id));
-
-      const rejectBtn = document.createElement("button");
-      rejectBtn.className = "btn btn--danger";
-      rejectBtn.type = "button";
-      rejectBtn.textContent = "Rechazar";
-      rejectBtn.disabled = req.status !== "pending";
-      rejectBtn.addEventListener("click", () => rejectRequest(req.id));
-
-      actions.appendChild(approveBtn);
-      actions.appendChild(rejectBtn);
-      card.appendChild(actions);
-    }
-
     list.appendChild(card);
   }
+}
+
+async function refreshRequestsFromDb() {
+  if (!sb) return;
+  const { data, error } = await sb
+    .from("requests")
+    .select("id, created_at, requester_name, type, notes, payload, status")
+    .order("created_at", { ascending: true });
+  if (error) return;
+  state.requests = (data || []).map((r) => ({
+    id: r.id,
+    createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+    requesterName: r.requester_name,
+    type: r.type,
+    notes: r.notes || "",
+    payload: r.payload || {},
+    status: r.status || "pending",
+  }));
+  saveState();
+  renderRequests();
 }
 
 function approveRequest(id) {
@@ -1044,9 +1268,20 @@ function wireForm() {
       applied: false,
     };
 
-    state.requests.push(req);
-    saveState();
-    renderRequests();
+    if (sb) {
+      const { error } = await sb.from("requests").insert({
+        requester_name: requesterName,
+        type,
+        notes,
+        payload: req.payload,
+        status: "pending",
+      });
+      if (!error) await refreshRequestsFromDb();
+    } else {
+      state.requests.push(req);
+      saveState();
+      renderRequests();
+    }
 
     // UX: reset parcial (mantiene solicitante)
     const keepRequester = requesterName;
@@ -1062,26 +1297,6 @@ function wireForm() {
 
     // muestra panel de solicitudes (en mobile, queda debajo; igual sirve)
     document.getElementById("requestsList").scrollIntoView({ behavior: "smooth", block: "nearest" });
-  });
-}
-
-function wireAdmin() {
-  const toggle = document.getElementById("adminToggle");
-  toggle.checked = Boolean(state.adminMode);
-  toggle.addEventListener("change", () => {
-    state.adminMode = toggle.checked;
-    saveState();
-    renderRequests();
-  });
-
-  document.getElementById("resetDemo").addEventListener("click", () => {
-    const ok = confirm("¿Restablecer datos? Se borrarán solicitudes y cambios locales de este navegador.");
-    if (!ok) return;
-    localStorage.removeItem(STORAGE_KEY);
-    state = loadState();
-    ensureAppliedApprovedAdds();
-    saveState();
-    init();
   });
 }
 
@@ -1163,6 +1378,19 @@ function wirePan() {
 
   viewport.addEventListener("pointerup", stop);
   viewport.addEventListener("pointercancel", stop);
+}
+
+function wireAddDataButton() {
+  const btn = document.getElementById("addData");
+  const panel = document.getElementById("sendRequest");
+  if (!btn || !panel) return;
+  btn.addEventListener("click", () => {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    const first = document.getElementById("reqType") || document.getElementById("firstName");
+    if (first && typeof first.focus === "function") {
+      setTimeout(() => first.focus(), 250);
+    }
+  });
 }
 
 function syncUI() {
@@ -1349,12 +1577,14 @@ function init() {
   ensureAppliedApprovedAdds();
   normalizePeople();
   saveState();
-  wireAdmin();
+  sb = window.getSupabase ? window.getSupabase() : null;
   wireZoom();
   wirePan();
+  wireAddDataButton();
   wireForm();
   setupPhotoModal();
   syncUI();
+  refreshRequestsFromDb();
 }
 
 let state = loadState();

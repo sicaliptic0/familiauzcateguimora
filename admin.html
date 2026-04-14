@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Árbol genealógico de la familia Uzcategui Mora: administración de solicitudes."
+    />
+    <title>Árbol genealógico de la familia Uzcategui Mora</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__brand">
+          <div class="mark" aria-hidden="true"></div>
+          <div>
+            <div class="topbar__title">Árbol genealógico de la familia Uzcategui Mora</div>
+          </div>
+        </div>
+        <div class="topbar__actions">
+          <a class="btn btn--ghost" href="./index.html">Volver</a>
+          <button id="signOut" class="btn btn--ghost" type="button">Salir</button>
+        </div>
+      </header>
+
+      <main class="layout" style="grid-template-columns: 1fr; grid-template-areas: 'main';">
+        <section class="formPanel" style="grid-area: main;">
+          <div class="formPanel__header">
+            <div>
+              <div class="sectionTitle">Solicitudes pendientes</div>
+              <div class="sectionHint">Solo el admin puede aprobar. Al aprobar, desaparece de la lista.</div>
+            </div>
+          </div>
+
+          <div class="form" id="authBox">
+            <div class="grid" style="grid-template-columns: 1fr;">
+              <div class="field">
+                <label for="adminEmail">Email admin</label>
+                <input id="adminEmail" type="email" value="samuel.galviz@gmail.com" />
+              </div>
+              <div class="field">
+                <label for="adminPassword">Contraseña</label>
+                <input id="adminPassword" type="password" autocomplete="current-password" />
+              </div>
+            </div>
+            <div class="formActions">
+              <div class="muted" id="authMsg">Inicia sesión con email + contraseña (Supabase Auth).</div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; width:100%;">
+                <button id="signUpBtn" class="btn btn--ghost" type="button">Crear cuenta (1ª vez)</button>
+                <button id="signInBtn" class="btn btn--primary" type="button">Entrar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form" id="adminBox" style="display:none;">
+            <div class="requestsList" id="adminRequests"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./admin.js"></script>
+  </body>
+</html>
+
