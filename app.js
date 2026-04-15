@@ -517,6 +517,21 @@ function applyHardcodedMigrations(nextState) {
       };
     }
 
+    // Cónyuge real de Karina: Alberto José Arambula Méndez
+    p[spouseId] = {
+      ...p[spouseId],
+      firstName: "Alberto José",
+      lastName: "Arambula Méndez",
+      birthDate: "1986-01-27",
+      isAlive: true,
+      deathDate: "",
+      location: "Concepción Chile",
+      email: "",
+      instagram: "",
+      tiktok: "",
+      putative: false,
+    };
+
     const valeryId = `${karinaId}_c1`;
     if (!p[valeryId]) {
       p[valeryId] = {
@@ -537,6 +552,150 @@ function applyHardcodedMigrations(nextState) {
     }
     const arr = Array.isArray(kidsMap[karinaId]) ? kidsMap[karinaId] : [];
     if (!arr.includes(valeryId)) kidsMap[karinaId] = [...arr, valeryId];
+  }
+
+  // Daniel Alfredo (h10): bisnieto Emma Isabella (hija de Jesús)
+  const danielCoupleId = "v_couple_h10";
+  const danielKids = (kidsMap[danielCoupleId] || []).filter((x) => p[x]);
+  const jesusId = danielKids.find((id) => safeText(p[id]?.firstName) === "Jesús" || safeText(p[id]?.firstName) === "Jesus");
+  if (jesusId) {
+    const emmaId = `${jesusId}_c_emma`;
+    if (!p[emmaId]) {
+      p[emmaId] = {
+        id: emmaId,
+        firstName: "Emma Isabella",
+        lastName: "Uzcategui Chacón",
+        birthDate: "2019-09-30",
+        isAlive: true,
+        deathDate: "",
+        location: "Boyacá, Colombia",
+        photos: [],
+        email: "jesusuzcategui825@gmail.com",
+        instagram: "Jesus uzcategui 96",
+        tiktok: "",
+        putative: false,
+        spouseId: "",
+      };
+    }
+    const arr = Array.isArray(kidsMap[jesusId]) ? kidsMap[jesusId] : [];
+    if (!arr.includes(emmaId)) kidsMap[jesusId] = [...arr, emmaId];
+  }
+
+  // Carlos Alfonso (h12): cónyuge real Yris Marbella (reemplaza placeholder de la pareja v_couple_h12)
+  const carlosCoupleId = "v_couple_h12";
+  const carlosCouple = nextState.couplesById?.[carlosCoupleId];
+  if (carlosCouple?.b && p[carlosCouple.b]) {
+    const sid = carlosCouple.b;
+    p[sid] = {
+      ...p[sid],
+      firstName: "Yris Marbella",
+      lastName: "Labrador de Uzcátegui",
+      birthDate: "1978-07-18",
+      isAlive: true,
+      deathDate: "",
+      location: "Táchira Cárdenas San Rafael",
+      email: "guardadosmarbella@gmail.com",
+      instagram: "",
+      tiktok: "",
+      putative: false,
+      spouseId: "",
+    };
+  }
+
+  // Eudes Marino (h6): cónyuge real Efigenia del Carmen (reemplaza placeholder de la pareja v_couple_h6)
+  const eudesCouple = nextState.couplesById?.[eudesCoupleId];
+  if (eudesCouple?.b && p[eudesCouple.b]) {
+    const sid = eudesCouple.b;
+    p[sid] = {
+      ...p[sid],
+      firstName: "Efigenia del Carmen",
+      lastName: "Escalante de Uzcategui",
+      birthDate: "1956-08-17",
+      isAlive: true,
+      deathDate: "",
+      location: "Táchira Venezuela",
+      email: "",
+      instagram: "",
+      tiktok: "",
+      putative: false,
+      spouseId: "",
+    };
+  }
+
+  // Ana Edita (h5): editar Luisana + agregar pareja e hijo
+  const anaEditaCoupleId = "v_couple_h5";
+  const anaKids = (kidsMap[anaEditaCoupleId] || []).filter((x) => p[x]);
+  const luisanaId = anaKids.find((id) => safeText(p[id]?.firstName).startsWith("Luisana"));
+  if (luisanaId && p[luisanaId]) {
+    p[luisanaId] = {
+      ...p[luisanaId],
+      firstName: "Luisana Priscila",
+      lastName: "Pulido Uzcategui",
+      birthDate: "1984-10-02",
+      isAlive: true,
+      deathDate: "",
+      location: "Lima, Peru",
+      email: "luisanap_1984@hotmail.com",
+      instagram: "@luisnanapia",
+      tiktok: "",
+    };
+
+    // Pareja de Luisana: Manuel Antonio Salazar Gonzalez
+    const spId = safeText(p[luisanaId].spouseId) || `${luisanaId}_s`;
+    p[luisanaId].spouseId = spId;
+    if (!p[spId]) {
+      p[spId] = {
+        id: spId,
+        firstName: "Manuel Antonio",
+        lastName: "Salazar Gonzalez",
+        birthDate: "1985-12-17",
+        isAlive: true,
+        deathDate: "",
+        location: "Lima, Peru",
+        photos: [],
+        email: "manuel182_7@hotmail.com",
+        instagram: "@giroselfortin",
+        tiktok: "",
+        putative: false,
+        spouseId: "",
+      };
+    } else {
+      p[spId] = {
+        ...p[spId],
+        firstName: "Manuel Antonio",
+        lastName: "Salazar Gonzalez",
+        birthDate: "1985-12-17",
+        isAlive: true,
+        deathDate: "",
+        location: "Lima, Peru",
+        email: "manuel182_7@hotmail.com",
+        instagram: "@giroselfortin",
+        tiktok: "",
+        putative: false,
+      };
+    }
+
+    // Hijo: Luciano David Salazar Pulido (bisnieto)
+    const lucianoId = `${luisanaId}_c1`;
+    if (!p[lucianoId]) {
+      p[lucianoId] = {
+        id: lucianoId,
+        firstName: "Luciano David",
+        lastName: "Salazar Pulido",
+        birthDate: "2013-03-21",
+        isAlive: true,
+        deathDate: "",
+        location: "Lima, Peru",
+        photos: [],
+        email: "",
+        instagram: "@lucianooo._sz",
+        tiktok: "",
+        putative: false,
+        spouseId: "",
+      };
+    }
+    const arr = Array.isArray(kidsMap[luisanaId]) ? kidsMap[luisanaId] : [];
+    if (!arr.includes(lucianoId)) kidsMap[luisanaId] = [...arr, lucianoId];
   }
 }
 
