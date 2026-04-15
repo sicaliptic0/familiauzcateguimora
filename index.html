@@ -103,7 +103,15 @@
             <div class="grid">
               <div class="field">
                 <label for="birthDate">Fecha de nacimiento</label>
-                <input id="birthDate" name="birthDate" type="date" required />
+                <input
+                  id="birthDate"
+                  name="birthDate"
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="bday"
+                  placeholder="DD/MM/AAAA"
+                  required
+                />
               </div>
 
               <div class="field">
@@ -116,9 +124,11 @@
                   <input
                     id="deathDate"
                     name="deathDate"
-                    type="date"
+                    type="text"
+                    inputmode="numeric"
                     disabled
                     aria-label="Fecha de deceso"
+                    placeholder="DD/MM/AAAA"
                   />
                 </div>
               </div>

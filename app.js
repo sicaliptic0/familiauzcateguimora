@@ -38,12 +38,33 @@ function uid(prefix = "id") {
 function formatDate(iso) {
   if (!iso) return "—";
   try {
-    const [y, m, d] = iso.split("-").map((x) => Number(x));
+    // Acepta AAAA-MM-DD o DD/MM/AAAA (compat).
+    const s = String(iso).trim();
+    const norm = s.includes("/") ? normalizeDateInputToIso(s) : s;
+    const [y, m, d] = String(norm).split("-").map((x) => Number(x));
     if (!y || !m || !d) return iso;
     return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
   } catch {
     return iso;
   }
+}
+
+function normalizeDateInputToIso(raw) {
+  const s = safeText(raw);
+  if (!s) return "";
+  // ya viene ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // DD/MM/AAAA o D/M/AAAA
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return "";
+  const dd = Number(m[1]);
+  const mm = Number(m[2]);
+  const yyyy = Number(m[3]);
+  if (!yyyy || mm < 1 || mm > 12 || dd < 1 || dd > 31) return "";
+  // validación real de calendario
+  const dt = new Date(Date.UTC(yyyy, mm - 1, dd));
+  if (dt.getUTCFullYear() !== yyyy || dt.getUTCMonth() !== (mm - 1) || dt.getUTCDate() !== dd) return "";
+  return `${String(yyyy).padStart(4, "0")}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
 }
 
 function safeText(s) {
@@ -1595,11 +1616,28 @@ function wireForm() {
   const reqType = document.getElementById("reqType");
   const photosInput = document.getElementById("photos");
   const relationshipEl = document.getElementById("relationship");
+  const birthDateEl = document.getElementById("birthDate");
 
   isAlive.addEventListener("change", () => {
     deathDate.disabled = isAlive.checked;
     if (isAlive.checked) deathDate.value = "";
   });
+
+  // Ayuda: auto-inserta "/" en DD/MM/AAAA (sin bloquear pegar).
+  const maskDate = (el) => {
+    if (!el) return;
+    el.addEventListener("input", () => {
+      const raw = String(el.value || "");
+      const digits = raw.replace(/[^\d]/g, "").slice(0, 8);
+      let out = "";
+      if (digits.length <= 2) out = digits;
+      else if (digits.length <= 4) out = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+      else out = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+      if (out !== raw) el.value = out;
+    });
+  };
+  maskDate(birthDateEl);
+  maskDate(deathDate);
 
   reqType.addEventListener("change", () => {
     const isEdit = reqType.value === "edit_person";
@@ -1623,9 +1661,11 @@ function wireForm() {
     const type = String(fd.get("reqType") || "add_person");
     const firstName = safeText(fd.get("firstName"));
     const lastName = safeText(fd.get("lastName"));
-    const birthDate = String(fd.get("birthDate") || "");
+    const birthDateRaw = String(fd.get("birthDate") || "");
+    const birthDate = normalizeDateInputToIso(birthDateRaw);
     const alive = Boolean(fd.get("isAlive"));
-    const death = String(fd.get("deathDate") || "");
+    const deathRaw = String(fd.get("deathDate") || "");
+    const death = normalizeDateInputToIso(deathRaw);
     const location = safeText(fd.get("location"));
     const email = safeText(fd.get("contactEmail"));
     const instagram = safeText(fd.get("instagram"));
@@ -1645,12 +1685,20 @@ function wireForm() {
       photos.push(await readFileAsDataUrl(f));
     }
 
-    if (!firstName || !lastName || !birthDate || !requesterName) {
+    if (!firstName || !lastName || !birthDateRaw || !requesterName) {
       alert("Por favor completa nombre completo, apellido completo, fecha de nacimiento y Quién solicita.");
       return;
     }
+    if (!birthDate) {
+      alert("Fecha de nacimiento inválida. Usa el formato DD/MM/AAAA.");
+      return;
+    }
     if (!alive && !death) {
-      alert("Si no está vivo, selecciona la fecha de deceso.");
+      alert("Si no está vivo, coloca la fecha de deceso (DD/MM/AAAA).");
+      return;
+    }
+    if (!alive && deathRaw && !death) {
+      alert("Fecha de deceso inválida. Usa el formato DD/MM/AAAA.");
       return;
     }
 
