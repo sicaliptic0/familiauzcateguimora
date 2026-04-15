@@ -23,6 +23,7 @@ body {
   font-family: var(--font);
   color: var(--text);
   background: #0f1315;
+  overflow-x: hidden; /* evita “corrimientos” por contenidos anchos (árbol) en mobile */
 }
 
 /* Fondo fijo real (no se “reinicia” al hacer scroll) */
@@ -151,7 +152,8 @@ body::before {
 }
 
 .layout {
-  width: min(1280px, 100%);
+  width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 16px;
   display: grid;

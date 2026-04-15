@@ -169,6 +169,7 @@ function defaultState() {
       instagram: "",
       tiktok: "",
       putative: Boolean(opts.putative),
+      spouseId: opts.spouseId || "",
     };
   }
 
@@ -273,7 +274,23 @@ function defaultState() {
       const nm = typeof g === "string" ? g : g?.name;
       const put = typeof g === "object" && g ? Boolean(g.putative) : false;
       const grandId = `p_h${hi}_c${j + 1}`;
-      addPerson(grandId, nm || "—", "Uzcátegui", { putative: put });
+      // Correcciones puntuales de nombres + caso especial con bisnietos.
+      if (safeText(nm) === "Daniel Alfredo") {
+        addPerson(grandId, "Daniel Alberto", "Moreno Uzcátegui", { putative: put });
+      } else if (safeText(nm) === "José Gregorio" || safeText(nm) === "Jose Gregorio") {
+        addPerson(grandId, "José Gregorio", "Moreno Uzcátegui", { putative: put });
+
+        // Pareja al lado (placeholder) + hijo en nuevo nivel (bisnietos).
+        const spouseId = `${grandId}_s`;
+        addPerson(spouseId, "Pareja", "—");
+        peopleById[grandId].spouseId = spouseId;
+
+        const bisnietoId = `${grandId}_c1`;
+        addPerson(bisnietoId, "Liam Gabriel", "Moreno Roa");
+        childrenByParentId[grandId] = [bisnietoId];
+      } else {
+        addPerson(grandId, nm || "—", "Uzcátegui", { putative: put });
+      }
       childrenByParentId[coupleId].push(grandId);
     }
   }
@@ -297,7 +314,7 @@ function loadState() {
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     // merge defensivo con defaults
-    return {
+    const merged = {
       ...defaultState(),
       ...parsed,
       peopleById: { ...defaultState().peopleById, ...(parsed.peopleById || {}) },
@@ -310,9 +327,88 @@ function loadState() {
       lineageColorById: { ...defaultState().lineageColorById, ...(parsed.lineageColorById || {}) },
       nodeOffsets: { ...defaultState().nodeOffsets, ...(parsed.nodeOffsets || {}) },
     };
+    applyHardcodedMigrations(merged);
+    return merged;
   } catch {
     return defaultState();
   }
+}
+
+function applyHardcodedMigrations(nextState) {
+  // Mantiene el árbol “fijo” aunque exista estado guardado de versiones previas.
+  if (!nextState || !nextState.peopleById) return;
+  const p = nextState.peopleById;
+  const kidsMap = nextState.childrenByParentId || {};
+
+  // Rama de Rosa Emilda: v_couple_h9 (ver defaultState: orden de hijos).
+  const rosaCoupleId = "v_couple_h9";
+  const rosaKids = (kidsMap[rosaCoupleId] || []).filter((id) => p[id]);
+  const parentByChild = buildParentMap(kidsMap);
+
+  for (const id of rosaKids) {
+    const person = p[id];
+    if (!person) continue;
+    const fn = safeText(person.firstName);
+    const ln = safeText(person.lastName);
+
+    // Daniel Alfredo -> Daniel Alberto Moreno Uzcátegui
+    if (fn === "Daniel Alfredo" && /uzc/i.test(ln)) {
+      person.firstName = "Daniel Alberto";
+      person.lastName = "Moreno Uzcátegui";
+    }
+
+    // José Gregorio -> José Gregorio Moreno Uzcátegui + pareja + bisnieto
+    if ((fn === "José Gregorio" || fn === "Jose Gregorio") && /uzc/i.test(ln)) {
+      person.firstName = "José Gregorio";
+      person.lastName = "Moreno Uzcátegui";
+
+      // Pareja al lado (placeholder)
+      const spouseId = safeText(person.spouseId) || `${id}_s`;
+      person.spouseId = spouseId;
+      if (!p[spouseId]) {
+        p[spouseId] = {
+          id: spouseId,
+          firstName: "Pareja",
+          lastName: "—",
+          birthDate: "",
+          isAlive: true,
+          deathDate: "",
+          location: "",
+          photos: [],
+          email: "",
+          instagram: "",
+          tiktok: "",
+          putative: false,
+          spouseId: "",
+        };
+      }
+
+      // Bisnieto: Liam Gabriel Moreno Roa (nuevo nivel)
+      const bisId = `${id}_c1`;
+      if (!p[bisId]) {
+        p[bisId] = {
+          id: bisId,
+          firstName: "Liam Gabriel",
+          lastName: "Moreno Roa",
+          birthDate: "",
+          isAlive: true,
+          deathDate: "",
+          location: "",
+          photos: [],
+          email: "",
+          instagram: "",
+          tiktok: "",
+          putative: false,
+          spouseId: "",
+        };
+      }
+      const arr = Array.isArray(kidsMap[id]) ? kidsMap[id] : [];
+      if (!arr.includes(bisId)) kidsMap[id] = [...arr, bisId];
+    }
+  }
+
+  // Limpieza: si por alguna razón alguien quedó colgando sin padre, no hacemos nada destructivo.
+  void parentByChild;
 }
 
 function saveState() {
@@ -762,6 +858,23 @@ function layoutTree() {
   nextGrandY = placeGrandBand(band2, nextGrandY) + grandBandGapY;
   placeGrandBand(band3, nextGrandY);
 
+  // Coloca pareja (si existe) para nietos específicos (p.ej. José Gregorio).
+  for (const [pid, ppos] of positions.entries()) {
+    if (String(pid).startsWith("v_")) continue;
+    const spouseId = safeText(state.peopleById?.[pid]?.spouseId);
+    if (!spouseId) continue;
+    if (!state.peopleById?.[spouseId]) continue;
+    if (positions.has(spouseId)) continue;
+    positions.set(spouseId, { x: ppos.x + nodeW - overlap, y: ppos.y + 7 });
+    edges.push({
+      from: pid,
+      to: spouseId,
+      color: "rgba(255,255,255,0.14)",
+      isSpouse: true,
+      lineage: lineageKeyForPerson(pid) || "",
+    });
+  }
+
   // Centra el bloque completo de nietos respecto a la base (nivel 0)
   const grandIds = pendingGrandkids.flatMap((g) => g.kids);
   const placedGrand = grandIds.map((id) => positions.get(id)).filter(Boolean);
@@ -777,6 +890,86 @@ function layoutTree() {
         if (p) positions.set(id, { x: p.x + dx, y: p.y });
       }
     }
+  }
+
+  // Bisnietos: un nivel extra debajo de los nietos (solo si algún nieto tiene hijos).
+  const greatBlocks = [];
+  const lineageHexFor = (pid) => {
+    const lk = lineageKeyForPerson(pid);
+    return lk ? (state.lineageColorById?.[lk] || "") : "";
+  };
+  const greatMinGapX = 16;
+  const greatGapY = 18;
+  const greatColsPerRow = 6;
+  const greatBandGapY = 48;
+
+  function layoutGreatBlock(kids) {
+    if (!kids.length) return { rows: [], blockW: 0, blockH: 0, rowH: nodeH + greatGapY };
+    const rows = [];
+    for (let i = 0; i < kids.length; i += greatColsPerRow) rows.push(kids.slice(i, i + greatColsPerRow));
+    const rowH = nodeH + greatGapY;
+    const rowWidths = rows.map((row) => row.length * nodeW + Math.max(0, row.length - 1) * greatMinGapX);
+    const blockW = Math.max(...rowWidths, nodeW);
+    const blockH = rows.length * rowH - greatGapY;
+    return { rows, blockW, blockH, rowH };
+  }
+
+  let grandMaxBottom = 0;
+  for (const gid of grandIds) {
+    const gp = positions.get(gid);
+    if (!gp) continue;
+    grandMaxBottom = Math.max(grandMaxBottom, gp.y + nodeH);
+    const spouseId = safeText(state.peopleById?.[gid]?.spouseId);
+    if (spouseId && positions.has(spouseId)) grandMaxBottom = Math.max(grandMaxBottom, positions.get(spouseId).y + spouseH);
+  }
+  for (const pid of grandIds) {
+    const parentPos = positions.get(pid);
+    if (!parentPos) continue;
+    const kids = (state.childrenByParentId?.[pid] || []).filter((id) => state.peopleById?.[id]);
+    if (!kids.length) continue;
+    const { rows, blockW, blockH, rowH } = layoutGreatBlock(kids);
+    if (!rows.length) continue;
+    const centerX = parentPos.x + nodeW / 2;
+    const hex = lineageHexFor(pid);
+    const color = hex ? withAlpha(hex, 0.78) : "rgba(235, 228, 214, 0.28)";
+    greatBlocks.push({ pid, centerX, kids, rows, blockW, blockH, rowH, color });
+  }
+
+  if (greatBlocks.length) {
+    greatBlocks.sort((a, b) => a.centerX - b.centerX);
+    let cursorRight = -Infinity;
+    const placed = [];
+    for (const b of greatBlocks) {
+      let left = b.centerX - b.blockW / 2;
+      left = Math.max(left, cursorRight + greatMinGapX);
+      cursorRight = left + b.blockW;
+      placed.push({ ...b, left });
+    }
+    // recentra toda la banda respecto a la base
+    const minXg = Math.min(...placed.map((p) => p.left));
+    const maxXg = Math.max(...placed.map((p) => p.left + p.blockW));
+    const center = (minXg + maxXg) / 2;
+    const dx = b0.center - center;
+    for (const p of placed) p.left += dx;
+
+    const baseY = grandMaxBottom + 26; // más compacto: bisnietos más cerca de nietos
+    let bandBottom = baseY;
+    for (const blk of placed) {
+      let y = baseY;
+      for (const row of blk.rows) {
+        const rowW = row.length * nodeW + Math.max(0, row.length - 1) * greatMinGapX;
+        let x = blk.left + Math.max(0, (blk.blockW - rowW) / 2);
+        for (const kidId of row) {
+          positions.set(kidId, { x, y });
+          edges.push({ from: blk.pid, to: kidId, color: blk.color, lineage: lineageKeyForPerson(blk.pid) || "" });
+          x += nodeW + greatMinGapX;
+        }
+        y += blk.rowH;
+      }
+      bandBottom = Math.max(bandBottom, baseY + blk.blockH);
+    }
+    // (si en el futuro hay más niveles, usar bandBottom + greatBandGapY)
+    void greatBandGapY;
   }
 
   // Normaliza X a 0..W
