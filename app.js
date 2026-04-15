@@ -760,9 +760,18 @@ function layoutTree() {
 
   const globalGrandTop = childrenMaxBottom + gapY2 + 26;
   const grandGapY = 18;
-  const grandMinGapX = 16; // separación mínima entre nietos (evita superposición)
+  const grandMinGapX = 18; // separación mínima entre nietos (evita superposición)
   const grandBandGapY = 40; // espacio entre las 3 filas de nietos (4+4+4)
   const grandColsPerRow = 6; // máx. nietos por fila bajo cada pareja
+
+  function hasSpouseNode(pid) {
+    const spouseId = safeText(state.peopleById?.[pid]?.spouseId);
+    return Boolean(spouseId && state.peopleById?.[spouseId]);
+  }
+
+  function grandKidSlotW(pid) {
+    return hasSpouseNode(pid) ? coupleW : nodeW;
+  }
 
   function layoutGrandBlock(kids) {
     if (!kids.length) return { rows: [], blockW: 0, blockH: 0, rowH: nodeH + grandGapY };
@@ -771,7 +780,10 @@ function layoutTree() {
       rows.push(kids.slice(i, i + grandColsPerRow));
     }
     const rowH = nodeH + grandGapY;
-    const rowWidths = rows.map((row) => row.length * nodeW + Math.max(0, row.length - 1) * grandMinGapX);
+    const rowWidths = rows.map((row) => {
+      if (!row.length) return 0;
+      return row.reduce((acc, pid, idx) => acc + grandKidSlotW(pid) + (idx < row.length - 1 ? grandMinGapX : 0), 0);
+    });
     const blockW = Math.max(...rowWidths, nodeW);
     const blockH = rows.length * rowH - grandGapY;
     return { rows, blockW, blockH, rowH };
@@ -823,7 +835,7 @@ function layoutTree() {
     for (const blk of placed) {
       let y = baseY;
       for (const row of blk.rows) {
-        const rowW = row.length * nodeW + Math.max(0, row.length - 1) * grandMinGapX;
+        const rowW = row.reduce((acc, pid, idx) => acc + grandKidSlotW(pid) + (idx < row.length - 1 ? grandMinGapX : 0), 0);
         let x = blk.left + Math.max(0, (blk.blockW - rowW) / 2);
         for (const pid of row) {
           positions.set(pid, { x, y });
@@ -841,7 +853,7 @@ function layoutTree() {
           } else {
             edges.push({ from: blk.fromCid, to: pid, color: blk.color, lineage: blk.fromCid });
           }
-          x += nodeW + grandMinGapX;
+          x += grandKidSlotW(pid) + grandMinGapX;
         }
         y += blk.rowH;
       }
@@ -978,8 +990,12 @@ function layoutTree() {
     for (const [id, p] of positions.entries()) positions.set(id, { x: p.x - minX, y: p.y });
   }
 
-  const maxX = Math.max(...[...positions.values()].map((p) => p.x + nodeW));
-  const maxY = Math.max(...[...positions.values()].map((p) => p.y + nodeH));
+  const maxX = Math.max(
+    ...[...positions.entries()].map(([id, p]) => p.x + (String(id).endsWith("_s") ? spouseW : nodeW)),
+  );
+  const maxY = Math.max(
+    ...[...positions.entries()].map(([id, p]) => p.y + (String(id).endsWith("_s") ? spouseH : nodeH)),
+  );
   const width = Math.max(520, maxX + 30);
   const height = Math.max(420, maxY + 50);
 
