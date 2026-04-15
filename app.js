@@ -409,6 +409,114 @@ function applyHardcodedMigrations(nextState) {
 
   // Limpieza: si por alguna razón alguien quedó colgando sin padre, no hacemos nada destructivo.
   void parentByChild;
+
+  // Olga María: actualizar Samuel Dario Abraham Galviz Uzcategui (nieto) con datos de contacto.
+  const olgaCoupleId = "v_couple_h11";
+  for (const id of (kidsMap[olgaCoupleId] || []).filter((x) => p[x])) {
+    const person = p[id];
+    const fn = safeText(person?.firstName);
+    if (!person) continue;
+    if (fn === "Samuel Dario A." || fn === "Samuel Dario Abraham") {
+      person.firstName = "Samuel Dario Abraham";
+      person.lastName = "Galviz Uzcategui";
+      person.birthDate = "1989-10-07";
+      person.isAlive = true;
+      person.deathDate = "";
+      person.location = "New York, Estados Unidos";
+      person.email = "samuel.galviz@gmail.com";
+      person.instagram = "drsamuelgalviz";
+      person.tiktok = "";
+    }
+  }
+
+  // Carmen Alicia: actualizar Carmen Abileny Pulido Uzcategui con datos.
+  const carmenAliciaCoupleId = "v_couple_h7";
+  for (const id of (kidsMap[carmenAliciaCoupleId] || []).filter((x) => p[x])) {
+    const person = p[id];
+    if (!person) continue;
+    if (safeText(person.firstName) === "Carmen Abileny") {
+      person.lastName = "Pulido Uzcategui";
+      person.birthDate = "1989-08-14";
+      person.isAlive = true;
+      person.deathDate = "";
+      person.location = "Alaska, Estados Unidos";
+      person.email = "abypulido24@gmail.com";
+      person.instagram = "@carmenabileny";
+      person.tiktok = "@carmen.abileny";
+    }
+  }
+
+  // Eudes Marino (h6): bisnietos para Wilmer y Karina + pareja de Karina.
+  const eudesCoupleId = "v_couple_h6";
+  const eudesKids = (kidsMap[eudesCoupleId] || []).filter((x) => p[x]);
+  const wilmerId = eudesKids.find((id) => safeText(p[id]?.firstName) === "Wilmer");
+  const karinaId = eudesKids.find((id) => safeText(p[id]?.firstName) === "Karina");
+
+  if (wilmerId) {
+    const wilmaryId = `${wilmerId}_c1`;
+    if (!p[wilmaryId]) {
+      p[wilmaryId] = {
+        id: wilmaryId,
+        firstName: "Wilmary Analía",
+        lastName: "Uzcátegui Mora",
+        birthDate: "2016-05-16",
+        isAlive: true,
+        deathDate: "",
+        location: "Venezuela",
+        photos: [],
+        email: "",
+        instagram: "",
+        tiktok: "",
+        putative: false,
+        spouseId: "",
+      };
+    }
+    const arr = Array.isArray(kidsMap[wilmerId]) ? kidsMap[wilmerId] : [];
+    if (!arr.includes(wilmaryId)) kidsMap[wilmerId] = [...arr, wilmaryId];
+  }
+
+  if (karinaId) {
+    const spouseId = safeText(p[karinaId]?.spouseId) || `${karinaId}_s`;
+    p[karinaId].spouseId = spouseId;
+    if (!p[spouseId]) {
+      p[spouseId] = {
+        id: spouseId,
+        firstName: "Pareja",
+        lastName: "—",
+        birthDate: "",
+        isAlive: true,
+        deathDate: "",
+        location: "",
+        photos: [],
+        email: "",
+        instagram: "",
+        tiktok: "",
+        putative: false,
+        spouseId: "",
+      };
+    }
+
+    const valeryId = `${karinaId}_c1`;
+    if (!p[valeryId]) {
+      p[valeryId] = {
+        id: valeryId,
+        firstName: "Valery Katherina",
+        lastName: "Arambula Uzcategui",
+        birthDate: "2010-11-22",
+        isAlive: true,
+        deathDate: "",
+        location: "Concepción Chile",
+        photos: [],
+        email: "",
+        instagram: "",
+        tiktok: "",
+        putative: false,
+        spouseId: "",
+      };
+    }
+    const arr = Array.isArray(kidsMap[karinaId]) ? kidsMap[karinaId] : [];
+    if (!arr.includes(valeryId)) kidsMap[karinaId] = [...arr, valeryId];
+  }
 }
 
 function saveState() {
@@ -1154,6 +1262,11 @@ function renderTree() {
 
   // Nodos
   let renderedCount = 0;
+  const spouseOwnerById = {};
+  for (const [pid, pp] of Object.entries(state.peopleById || {})) {
+    const sid = safeText(pp?.spouseId);
+    if (sid) spouseOwnerById[sid] = pid;
+  }
   for (const [id, p] of positions.entries()) {
     if (String(id).startsWith("v_")) continue; // nodos virtuales no se renderizan
     const person = normalizePersonPhotos(state.peopleById[id]);
@@ -1168,16 +1281,10 @@ function renderTree() {
     node.dataset.personId = id;
 
     // Borde por linaje:
-    // - hijos/cónyuges: su pareja (coupleId)
-    // - nietos: el coupleId padre (childrenByParentId)
-    let lineageCoupleId = "";
-    const maybeParent = parentByChild[id];
-    if (maybeParent && String(maybeParent).startsWith("v_couple_h")) {
-      lineageCoupleId = maybeParent;
-    } else {
-      const c = findCoupleIdByMember(id);
-      if (c && String(c).startsWith("v_couple_h")) lineageCoupleId = c;
-    }
+    // - cualquier descendiente: se calcula subiendo hasta v_couple_hN
+    // - nodos de pareja manual (id *_s o lastName "—"): heredan del titular
+    const ownerId = isSpouse ? (spouseOwnerById[id] || "") : "";
+    const lineageCoupleId = lineageKeyForPerson(ownerId || id);
     const lineageHex = lineageCoupleId ? state.lineageColorById?.[lineageCoupleId] : "";
     if (lineageHex) {
       node.style.borderColor = `${lineageHex}B3`; // ~70% alpha
