@@ -1267,6 +1267,13 @@ function renderTree() {
     const sid = safeText(pp?.spouseId);
     if (sid) spouseOwnerById[sid] = pid;
   }
+
+  function lineageForNodeId(nodeId) {
+    const person = state.peopleById?.[nodeId];
+    const isSpouse = String(nodeId).endsWith("_s") || safeText(person?.lastName) === "—";
+    const ownerId = isSpouse ? (spouseOwnerById[nodeId] || "") : "";
+    return lineageKeyForPerson(ownerId || nodeId);
+  }
   for (const [id, p] of positions.entries()) {
     if (String(id).startsWith("v_")) continue; // nodos virtuales no se renderizan
     const person = normalizePersonPhotos(state.peopleById[id]);
@@ -1329,7 +1336,7 @@ function renderTree() {
     node.addEventListener("click", (e) => {
       const target = e.target;
       if (target && target.closest && target.closest("[data-open-photos='true']")) return;
-      const lkNode = lineageKeyForPerson(id);
+      const lkNode = lineageForNodeId(id);
       if (treeIsCoarsePointer() && lkNode) {
         if (mobileTreeLineagePrimeId === id) {
           mobileTreeLineagePrimeId = null;
@@ -1382,7 +1389,7 @@ function renderTree() {
   }
   for (const n of canvas.querySelectorAll(".node")) {
     const pid = n.dataset.personId || "";
-    const lk = lineageKeyForPerson(pid);
+    const lk = lineageForNodeId(pid);
     n.dataset.lineage = lk;
     if (!lk) continue;
     if (!treeIsCoarsePointer()) {
