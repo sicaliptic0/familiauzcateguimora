@@ -11,9 +11,10 @@ jobs:
     steps:
       - name: Execute Write Transaction
         run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           curl -i -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/health_check" \
           -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
           -H "Content-Type: application/json" \
           -H "Prefer: resolution=merge-duplicates" \
-          -d '{ "id": 1 }'
+          -d "{ \"id\": 1, \"updated_at\": \"$TIMESTAMP\" }"
